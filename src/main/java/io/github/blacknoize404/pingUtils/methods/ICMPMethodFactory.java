@@ -8,7 +8,7 @@ import java.io.IOException;
 import java.net.InetAddress;
 import java.util.function.Consumer;
 
-public class ICMPMethod implements PingMethod {
+public final class ICMPMethodFactory implements PingMethodFactory {
 
     @Override
     public void ping(String host, int timeoutMillis, Consumer<PingResponse> callback) {

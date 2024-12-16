@@ -1,6 +1,6 @@
 package io.github.blacknoize404.pingUtils;
 
-import io.github.blacknoize404.pingUtils.methods.PingMethod;
+import io.github.blacknoize404.pingUtils.methods.PingMethodFactory;
 import io.github.blacknoize404.pingUtils.responses.PingResponse;
 import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
@@ -10,7 +10,7 @@ import java.util.function.Consumer;
 
 import static io.github.blacknoize404.pingUtils.Ping.State.*;
 
-public class Ping {
+public final class Ping {
 
     enum State {
         RUNNING,
@@ -27,14 +27,14 @@ public class Ping {
     private final int requestQuantity;
     private int requestsLeft;
 
-    private final PingMethod method;
+    private final PingMethodFactory method;
     private final Consumer<PingResponse> callback;
 
     private final ScheduledExecutorService scheduler;
     private ScheduledFuture<?> task;
 
     @Contract("_, _, _, _ -> new")
-    public static @NotNull Ping ofRequestQuantity(String location, int requestQuantity, PingMethod method, Consumer<PingResponse> callback) {
+    public static @NotNull Ping ofRequestQuantity(String location, int requestQuantity, PingMethodFactory method, Consumer<PingResponse> callback) {
 
         if (requestQuantity <= 0) throw new IllegalArgumentException("Debe definir una cantidad de peticiones mayor que 0");
 
@@ -43,7 +43,7 @@ public class Ping {
     }
 
     @Contract("_, _, _, _ -> new")
-    public static @NotNull Ping withUpdateRate(String location, int updateRateMillis, PingMethod method, Consumer<PingResponse> callback) {
+    public static @NotNull Ping withUpdateRate(String location, int updateRateMillis, PingMethodFactory method, Consumer<PingResponse> callback) {
 
         if (updateRateMillis < 0) throw new IllegalArgumentException("Debe definir una duración mayor que 0 milisegundos");
 
@@ -51,8 +51,7 @@ public class Ping {
 
     }
 
-    @Contract("_, _, _, _ -> new")
-    public static @NotNull Ping withTimeout(String location, int timeoutMillis, PingMethod method, Consumer<PingResponse> callback) {
+    public static @NotNull Ping withTimeout(String location, int timeoutMillis, PingMethodFactory method, Consumer<PingResponse> callback) {
 
         if (timeoutMillis < 0) throw new IllegalArgumentException("Debe definir una duración mayor que 0 milisegundos");
 
@@ -61,13 +60,13 @@ public class Ping {
     }
 
     @Contract("_, _, _ -> new")
-    public static @NotNull Ping of(String location, PingMethod method, Consumer<PingResponse> callback) {
+    public static @NotNull Ping of(String location, PingMethodFactory method, Consumer<PingResponse> callback) {
 
         return new Ping(location, -1, -1, 0, method, callback, 1);
 
     }
 
-    private Ping(String location, int timeoutMillis, int updateRateMillis, int requestQuantity, PingMethod method, Consumer<PingResponse> callback, int corePoolSize) {
+    private Ping(String location, int timeoutMillis, int updateRateMillis, int requestQuantity, PingMethodFactory method, Consumer<PingResponse> callback, int corePoolSize) {
         this.location = location;
 
         this.timeoutMillis = (updateRateMillis < 0) ? 10000 : timeoutMillis;

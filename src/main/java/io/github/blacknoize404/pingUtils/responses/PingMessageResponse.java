@@ -1,6 +1,6 @@
 package io.github.blacknoize404.pingUtils.responses;
 
-public class PingMessageResponse extends PingResponse {
+public final class PingMessageResponse extends PingResponse {
 
     private final String message;
 
