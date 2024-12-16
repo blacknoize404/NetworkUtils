@@ -11,7 +11,7 @@ import java.net.Socket;
 import java.net.SocketTimeoutException;
 import java.util.function.Consumer;
 
-public class HTTPMethod implements PingMethod {
+public final class HTTPMethodFactory implements PingMethodFactory {
 
     public enum Protocol {
         SECURE,
@@ -20,7 +20,7 @@ public class HTTPMethod implements PingMethod {
 
     private final int port;
 
-    public HTTPMethod(Protocol port) {
+    public HTTPMethodFactory(Protocol port) {
 
         this.port = switch(port) {
             case SECURE -> 443;

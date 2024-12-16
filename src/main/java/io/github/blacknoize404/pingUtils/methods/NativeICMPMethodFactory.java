@@ -15,7 +15,7 @@ import java.util.function.Consumer;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-public class NativeICMPMethod implements PingMethod {
+public final class NativeICMPMethodFactory implements PingMethodFactory {
 
     @Override
     public void ping(String host, int timeoutMillis, Consumer<PingResponse> callback) {

@@ -15,10 +15,9 @@ public class Main {
 
     public static void main(String[] args) throws InterruptedException {
 
-
         Ping p = Ping.withTimeout(
                 "google.com.cu",
-                500, new ICMPMethod(),
+                500, new ICMPMethodFactory(),
                 pingResponse -> {
                     if (pingResponse instanceof PingSuccessResponse) {
                         set.add(((PingSuccessResponse) pingResponse).getResponseMsecs());
@@ -37,7 +36,7 @@ public class Main {
         Ping p2 = Ping.withTimeout(
                 "google.com.cu",
                 500,
-                new NativeICMPMethod(),
+                new NativeICMPMethodFactory(),
                 pingResponse -> {
                     if (pingResponse instanceof PingSuccessResponse) {
                         set.add(((PingSuccessResponse) pingResponse).getResponseMsecs());
@@ -55,15 +54,15 @@ public class Main {
         Ping p3 = Ping.withTimeout(
                 "google.com.cu",
                 500,
-                new HTTPMethod(HTTPMethod.Protocol.SECURE),
-                Main::recieve);
+                new HTTPMethodFactory(HTTPMethodFactory.Protocol.SECURE),
+                Main::receive);
 
         p3.start();
-
+        p2.stop();
         p.poll();
     }
 
-    public static void recieve(PingResponse pingResponse) {
+    public static void receive(PingResponse pingResponse) {
 
         if (pingResponse instanceof PingSuccessResponse) {
             set.add(((PingSuccessResponse) pingResponse).getResponseMsecs());
