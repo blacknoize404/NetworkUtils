@@ -33,7 +33,6 @@ public final class Ping {
     private final ScheduledExecutorService scheduler;
     private ScheduledFuture<?> task;
 
-    @Contract("_, _, _, _ -> new")
     public static @NotNull Ping ofRequestQuantity(String location, int requestQuantity, PingMethodFactory method, Consumer<PingResponse> callback) {
 
         if (requestQuantity <= 0) throw new IllegalArgumentException("Debe definir una cantidad de peticiones mayor que 0");
@@ -42,7 +41,6 @@ public final class Ping {
 
     }
 
-    @Contract("_, _, _, _ -> new")
     public static @NotNull Ping withUpdateRate(String location, int updateRateMillis, PingMethodFactory method, Consumer<PingResponse> callback) {
 
         if (updateRateMillis < 0) throw new IllegalArgumentException("Debe definir una duración mayor que 0 milisegundos");
