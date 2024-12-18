@@ -52,7 +52,7 @@ public class Main {
         Ping p3 = Ping.withTimeout(
                 "ahora.cu",
                 500,
-                new HTTPMethodFactory(HTTPMethodFactory.Protocol.SECURE),
+                PingMethod.HTTP_SECURE.method(),
                 Main::receive);
 
         p3.start();
