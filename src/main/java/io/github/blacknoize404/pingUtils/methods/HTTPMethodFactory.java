@@ -5,12 +5,12 @@ import io.github.blacknoize404.pingUtils.responses.PingResponse;
 import io.github.blacknoize404.pingUtils.responses.PingSuccessResponse;
 
 import java.io.IOException;
-import java.net.InetSocketAddress;
-import java.net.NoRouteToHostException;
-import java.net.Socket;
-import java.net.SocketTimeoutException;
+import java.net.*;
 import java.util.function.Consumer;
 
+/**
+ *
+ */
 public final class HTTPMethodFactory implements PingMethodFactory {
 
     public enum Protocol {
@@ -20,9 +20,9 @@ public final class HTTPMethodFactory implements PingMethodFactory {
 
     private final int port;
 
-    public HTTPMethodFactory(Protocol port) {
+    public HTTPMethodFactory(Protocol protocol) {
 
-        this.port = switch(port) {
+        this.port = switch(protocol) {
             case SECURE -> 443;
             case UNSECURE -> 80;
         };
@@ -37,25 +37,35 @@ public final class HTTPMethodFactory implements PingMethodFactory {
             long initial = System.currentTimeMillis();
             socket.connect(new InetSocketAddress(host, port), timeoutMillis);
             long duration = System.currentTimeMillis() - initial;
-            callback.accept(new PingSuccessResponse(duration));
+
+            callback.accept(new PingSuccessResponse(host, duration));
 
         } catch (SocketTimeoutException e) {
             callback.accept(
                     new PingErrorResponse(
+                            host,
                             "Se ha alcanzado el tiempo de petición"
                     )
             );
         } catch (NoRouteToHostException e) {
             callback.accept(
                     new PingErrorResponse(
-                            "No se pudo alcanzar la url o no se pudo " +
-                                    "resolver la url con el servidor DNS"
+                            host,
+                            "No se pudo resolver la url con el servidor DNS"
+                    )
+            );
+        } catch (UnknownHostException e) {
+            callback.accept(
+                    new PingErrorResponse(
+                            host,
+                            "La dirección ip del host no pudo ser determinada"
                     )
             );
         } catch (IOException e) {
             callback.accept(
-                    new PingErrorResponse(
-                            e.getMessage()
+                    new PingErrorResponse (
+                            host,
+                            "Ha ocurrido un error de entrada/salida"
                     )
             );
         }

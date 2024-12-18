@@ -4,7 +4,8 @@ public class PingSuccessResponse extends PingResponse {
 
     private final long responseMsecs;
 
-    public PingSuccessResponse(long responseMsecs) {
+    public PingSuccessResponse(String host, long responseMsecs) {
+        super(host);
         this.responseMsecs = responseMsecs;
     }
 

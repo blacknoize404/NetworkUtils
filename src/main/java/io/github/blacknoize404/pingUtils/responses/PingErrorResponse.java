@@ -1,10 +1,11 @@
 package io.github.blacknoize404.pingUtils.responses;
 
-public class PingErrorResponse extends PingResponse {
+public final class PingErrorResponse extends PingResponse {
 
     private final String reason;
 
-    public PingErrorResponse(String reason) {
+    public PingErrorResponse(String host, String reason) {
+        super(host);
         this.reason = reason;
     }
 

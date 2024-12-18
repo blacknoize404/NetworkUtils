@@ -8,7 +8,8 @@ import org.jetbrains.annotations.NotNull;
 import java.util.concurrent.*;
 import java.util.function.Consumer;
 
-import static io.github.blacknoize404.pingUtils.Ping.State.*;
+import static io.github.blacknoize404.pingUtils.Ping.State.RUNNING;
+import static io.github.blacknoize404.pingUtils.Ping.State.STOPPED;
 
 public final class Ping {
 
@@ -19,7 +20,7 @@ public final class Ping {
 
     private State state;
 
-    private final String location;
+    private String host;
     private final int timeoutMillis;
     private final int updateRateMillis;
 
@@ -33,23 +34,34 @@ public final class Ping {
     private final ScheduledExecutorService scheduler;
     private ScheduledFuture<?> task;
 
-    public static @NotNull Ping ofRequestQuantity(String location, int requestQuantity, PingMethodFactory method, Consumer<PingResponse> callback) {
+    public static @NotNull Ping ofRequestQuantity(String location,
+                                                  int requestQuantity,
+                                                  PingMethodFactory method,
+                                                  Consumer<PingResponse> callback) {
 
-        if (requestQuantity <= 0) throw new IllegalArgumentException("Debe definir una cantidad de peticiones mayor que 0");
+        if (requestQuantity <= 0)
+            throw new IllegalArgumentException("Debe definir una cantidad de peticiones mayor que 0");
 
         return new Ping(location, -1, -1, requestQuantity, method, callback, 1);
 
     }
 
-    public static @NotNull Ping withUpdateRate(String location, int updateRateMillis, PingMethodFactory method, Consumer<PingResponse> callback) {
+    public static @NotNull Ping withUpdateRate(String location,
+                                               int updateRateMillis,
+                                               PingMethodFactory method,
+                                               Consumer<PingResponse> callback) {
 
-        if (updateRateMillis < 0) throw new IllegalArgumentException("Debe definir una duración mayor que 0 milisegundos");
+        if (updateRateMillis < 0)
+            throw new IllegalArgumentException("Debe definir una duración mayor que 0 milisegundos");
 
         return new Ping(location, -1, updateRateMillis, 0, method, callback, 1);
 
     }
 
-    public static @NotNull Ping withTimeout(String location, int timeoutMillis, PingMethodFactory method, Consumer<PingResponse> callback) {
+    public static @NotNull Ping withTimeout(String location,
+                                            int timeoutMillis,
+                                            PingMethodFactory method,
+                                            Consumer<PingResponse> callback) {
 
         if (timeoutMillis < 0) throw new IllegalArgumentException("Debe definir una duración mayor que 0 milisegundos");
 
@@ -58,14 +70,22 @@ public final class Ping {
     }
 
     @Contract("_, _, _ -> new")
-    public static @NotNull Ping of(String location, PingMethodFactory method, Consumer<PingResponse> callback) {
+    public static @NotNull Ping of(String location,
+                                   PingMethodFactory method,
+                                   Consumer<PingResponse> callback) {
 
         return new Ping(location, -1, -1, 0, method, callback, 1);
 
     }
 
-    private Ping(String location, int timeoutMillis, int updateRateMillis, int requestQuantity, PingMethodFactory method, Consumer<PingResponse> callback, int corePoolSize) {
-        this.location = location;
+    private Ping(String host,
+                 int timeoutMillis,
+                 int updateRateMillis,
+                 int requestQuantity,
+                 PingMethodFactory method,
+                 Consumer<PingResponse> callback,
+                 int corePoolSize) {
+        this.host = host;
 
         this.timeoutMillis = (updateRateMillis < 0) ? 10000 : timeoutMillis;
 
@@ -78,6 +98,12 @@ public final class Ping {
         this.method = method;
         this.callback = callback;
         this.scheduler = Executors.newScheduledThreadPool(corePoolSize, new DaemonThreadFactory());
+    }
+
+    public void changeUrl(String host) {
+
+        this.host = host;
+
     }
 
     public void start() {
@@ -96,6 +122,12 @@ public final class Ping {
         while (!task.isDone()) {
             TimeUnit.MILLISECONDS.sleep(100);
         }
+
+    }
+
+    public boolean isRunning() {
+
+        return state == RUNNING;
 
     }
 
@@ -122,13 +154,13 @@ public final class Ping {
         }
 
         if (state != RUNNING) {
-            scheduler.shutdown();
-            reset();
+            task.resultNow();
+            scheduler.close();
             return;
         }
 
         try {
-            method.ping(location, timeoutMillis, callback);
+            method.ping(host, timeoutMillis, callback);
             TimeUnit.MILLISECONDS.sleep(this.updateRateMillis);
         } catch (InterruptedException e) {
             System.out.println("ERROR GRAVE: " + e.getMessage());

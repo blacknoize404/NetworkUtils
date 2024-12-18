@@ -19,14 +19,24 @@ public final class ICMPMethodFactory implements PingMethodFactory {
             long initial = System.currentTimeMillis();
             boolean reachable = address.isReachable(timeoutMillis);
 
-            if (!reachable) callback.accept(new PingErrorResponse("No se pudo conectar con el servidor"));
+            if (!reachable) callback.accept(
+                    new PingErrorResponse(
+                            host,
+                            "No se pudo conectar con el servidor"
+                    )
+            );
             else {
                 long duration = System.currentTimeMillis() - initial;
-                callback.accept(new PingSuccessResponse(duration));
+                callback.accept(
+                        new PingSuccessResponse(host, duration)
+                );
             }
 
         } catch (IOException e) {
-            callback.accept(new PingErrorResponse(e.getMessage()));
+            callback.accept(
+                    new PingErrorResponse(host, e.getMessage()
+                    )
+            );
         }
 
     }

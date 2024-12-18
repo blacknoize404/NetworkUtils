@@ -4,7 +4,8 @@ public final class PingMessageResponse extends PingResponse {
 
     private final String message;
 
-    public PingMessageResponse(String message) {
+    public PingMessageResponse(String host, String message) {
+        super(host);
         this.message = message;
     }
 

@@ -13,7 +13,7 @@ class PingMessageResponseTest {
     @BeforeEach
     void setUp() {
 
-        pingSuccessResponse = new PingMessageResponse("Texto");
+        pingSuccessResponse = new PingMessageResponse("ahora.cu", "Texto");
 
     }
 

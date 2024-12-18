@@ -10,7 +10,7 @@ class PingSuccessResponseTest {
     @BeforeEach
     void setUp() {
 
-        pingSuccessResponse = new PingSuccessResponse(20);
+        pingSuccessResponse = new PingSuccessResponse("ahora.cu", 20);
 
     }
 

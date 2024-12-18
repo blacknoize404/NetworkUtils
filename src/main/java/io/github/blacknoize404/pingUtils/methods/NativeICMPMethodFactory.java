@@ -31,16 +31,21 @@ public final class NativeICMPMethodFactory implements PingMethodFactory {
             BufferedReader stdInput = new BufferedReader(new InputStreamReader(process.getInputStream(), StandardCharsets.UTF_8));
             BufferedReader stdError = new BufferedReader(new InputStreamReader(process.getErrorStream(), StandardCharsets.UTF_8));
 
-            processBuffer(stdInput, callback);
-            processBuffer(stdError, callback);
+            processBuffer(host, stdInput, callback);
+            processBuffer(host, stdError, callback);
 
         } catch (RuntimeException | IOException e) {
-            callback.accept(new PingErrorResponse(e.getMessage()));
+            callback.accept(
+                    new PingErrorResponse(
+                            host,
+                            e.getMessage()
+                    )
+            );
         }
 
     }
 
-    private void processBuffer(BufferedReader reader, Consumer<PingResponse> callback) {
+    private void processBuffer(String host, BufferedReader reader, Consumer<PingResponse> callback) {
 
         String line;
 
@@ -60,14 +65,27 @@ public final class NativeICMPMethodFactory implements PingMethodFactory {
 
         if (isFound) {
             long responseMillis = Long.parseLong(m.group(1));
-            callback.accept(new PingSuccessResponse(responseMillis));
+            callback.accept(
+                    new PingSuccessResponse(
+                            host,
+                            responseMillis));
         }
 
         if (line.equals("Tiempo de espera agotado para esta solicitud.") ||
                 line.startsWith("La solicitud de ping no pudo encontrar el host")) {
-            callback.accept(new PingErrorResponse(line.replace('\n', ' ')));
+            callback.accept(
+                    new PingErrorResponse(
+                            host,
+                            line.replace('\n', ' ')
+                    )
+            );
         } else {
-            callback.accept(new PingMessageResponse(line));
+            callback.accept(
+                    new PingMessageResponse(
+                            host,
+                            line
+                    )
+            );
         }
     }
 
