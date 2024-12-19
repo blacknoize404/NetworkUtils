@@ -31,7 +31,7 @@ public class Main {
 //        );
 //
 //        p.start();
-////        p.poll();
+//        p.poll();
 //
 //        Ping p2 = Ping.withTimeout(
 //                "google.com.cu",
@@ -70,7 +70,7 @@ public class Main {
     public static void receive(PingResponse pingResponse) {
 
         if (pingResponse instanceof PingSuccessResponse) {
-            System.out.println("Respuesta desde " + pingResponse.getHost() + " vía HTTPS: " + pingResponse);
+            System.out.println("Respuesta desde " + pingResponse.getHost() + " vía HTTP: " + pingResponse);
         } else if (pingResponse instanceof PingErrorResponse) {
             System.out.println("Error desde " + pingResponse.getHost() + " vía HTTP: " + pingResponse);
         } else {

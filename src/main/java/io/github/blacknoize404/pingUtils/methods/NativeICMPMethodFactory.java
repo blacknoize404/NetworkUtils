@@ -47,6 +47,7 @@ public final class NativeICMPMethodFactory implements PingMethodFactory {
 
     private void processBuffer(String host, BufferedReader reader, Consumer<PingResponse> callback) {
 
+
         String line;
 
         Optional<String> lines = reader
