@@ -46,10 +46,13 @@ public class Main {
 //
 //        p2.start();
 
-        Ping p3 = Ping.withTimeout(
+        Ping p3 = Ping.of(
                 "google.com.cu",
                 500,
-                PingMethod.ICMP.method());
+                -1,
+                -1,
+                PingMethod.ICMP.method(),
+                null);
 
         p3.start();
 

@@ -16,9 +16,6 @@ import static io.github.blacknoize404.pingUtils.Ping.State.STOPPED;
  * The Ping class aims to provide flexibility in conducting ping operations by
  * allowing different configurations such as setting request quantities, update rates, and timeouts.
  * The results of the ping operations are processed using a consumer callback.
- * <p>
- * This class is immutable except for operations that change the state, restart the
- * process, or switch the monitored URL.
  */
 public final class Ping {
 
@@ -68,7 +65,7 @@ public final class Ping {
      * will be considered failed if no reply is received. It is used to prevent indefinitely waiting
      * for a response from a host during a ping process managed by the Ping class.
      */
-    private final int timeoutMillis;
+    private int timeoutMillis;
     /**
      * Specifies the frequency, in milliseconds, at which the ping operation is executed.
      * <p>
@@ -80,7 +77,7 @@ public final class Ping {
      * It is primarily used within the internal scheduling logic of the Ping class to control
      * the timing of successive ping operations.
      */
-    private final int updateRateMillis;
+    private int updateRateMillis;
 
     /**
      * Indicates whether the Ping instance is configured to use a fixed number of requests.
@@ -90,7 +87,7 @@ public final class Ping {
      * the instance transitions to the stopped state. If set to false, the Ping instance
      * will operate indefinitely until explicitly stopped.
      */
-    private final boolean isUsingFixedRequestQuantity;
+    private boolean isUsingFixedRequestQuantity;
 
     /**
      * Specifies the fixed number of ping requests to be sent to a target host.
@@ -104,7 +101,7 @@ public final class Ping {
      * of `requestQuantity` is decremented after each executed ping request,
      * ensuring the total number of requests matches the configured quantity.
      */
-    private final int requestQuantity;
+    private int requestQuantity;
     /**
      * The number of remaining requests that can be made within a specified limit or quota.
      * This variable is typically used to track and enforce rate-limiting or usage restrictions.
@@ -119,11 +116,8 @@ public final class Ping {
      * The method is responsible for handling the logic to interact with
      * the given host based on the configuration parameters, such as the
      * timeout and response callback.
-     * <p>
-     * Being marked as {@code final}, this variable ensures that the ping
-     * method does not change once a {@code Ping} object is instantiated.
      */
-    private final PingMethodFactory method;
+    private PingMethodFactory method;
 
     /**
      * A callback function used to handle responses from the ping operation.
@@ -188,7 +182,6 @@ public final class Ping {
      * @param location        the target location (e.g., a URL or host) where the requests will be sent.
      * @param requestQuantity the number of requests to be sent. Must be greater than 0.
      * @param method          the PingMethodFactory defining the method to handle the request operation.
-     * @param callback        the Consumer to handle the PingResponse after each request.
      * @return a new Ping instance configured with the specified request quantity and method.
      * @throws IllegalArgumentException if the requestQuantity is less than or equal to 0.
      */
@@ -211,7 +204,6 @@ public final class Ping {
      * @param updateRateMillis the interval in milliseconds between consecutive ping requests.
      *                         Must be greater than 0.
      * @param method           the PingMethodFactory defining the ping implementation to use.
-     * @param callback         the Consumer to handle the response of each ping operation.
      * @return a Ping instance configured with the specified update rate and parameters.
      * @throws IllegalArgumentException if updateRateMillis is less than or equal to 0.
      */
@@ -233,7 +225,6 @@ public final class Ping {
      * @param location      the target location (e.g., a URL or host) where the ping request will be sent.
      * @param timeoutMillis the maximum duration in milliseconds to wait for a response. Must be greater than 0.
      * @param method        the PingMethodFactory defining the implementation for handling the ping request.
-     * @param callback      the Consumer to process the PingResponse after the request completes.
      * @return a new Ping instance configured with the specified timeout and parameters.
      * @throws IllegalArgumentException if the timeoutMillis is less than or equal to 0.
      */
@@ -256,13 +247,18 @@ public final class Ping {
      *
      * @param location the target location (e.g., a URL or host) where the ping requests will be sent.
      * @param method   the PingMethodFactory defining the implementation for handling the ping requests.
-     * @param callback the Consumer to process the PingResponse after each request.
      * @return a new Ping instance configured with the specified parameters.
      */
-    public static Ping of(String location,
-                          PingMethodFactory method) {
+    public static Ping of(String host,
+                          int timeoutMillis,
+                          int updateRateMillis,
+                          int requestQuantity,
+                          PingMethodFactory method,
+                          Consumer<PingResponse> callback) {
 
-        return new Ping(location, -1, -1, 0, method, null);
+        if (method == null) throw new IllegalArgumentException("Debe definir un método no nulo");
+
+        return new Ping(host, timeoutMillis, updateRateMillis, requestQuantity, method, callback);
 
     }
 
@@ -315,7 +311,7 @@ public final class Ping {
      * @param host the new host to set. Must not be null or blank.
      * @throws IllegalArgumentException if the provided host is null, empty, or consists only of whitespace.
      */
-    public void changeUrl(String host) {
+    public void setHost(String host) {
 
         if (host == null || host.isBlank()) {
             throw new IllegalArgumentException("El host no puede ser nulo o vacío");
@@ -325,6 +321,30 @@ public final class Ping {
 
     }
 
+    public void setTimeoutMillis(int timeoutMillis) {
+        this.timeoutMillis = timeoutMillis;
+    }
+
+    public void setUpdateRateMillis(int updateRateMillis) {
+        this.updateRateMillis = updateRateMillis;
+    }
+
+    public void setRequestQuantity(int requestQuantity) {
+
+        this.isUsingFixedRequestQuantity = requestQuantity > 0;
+        this.requestQuantity = requestQuantity;
+
+    }
+
+    public void setMethod(PingMethodFactory method) {
+        this.method = method;
+    }
+
+    /**
+     * Asigna un método de escucha para la respuesta del ping.
+     *
+     * @param callback the Consumer to process the PingResponse after the request completes.
+     */
     public void setOnPingResponse(Consumer<PingResponse> callback) {
         this.callback = callback;
     }
@@ -347,6 +367,10 @@ public final class Ping {
             state = RUNNING;
 
             task = scheduler.scheduleWithFixedDelay(this::run, 0, updateRateMillis, TimeUnit.MILLISECONDS);
+
+            if (callback != null)
+                callback.accept(new PingMessageResponse(host, "Iniciando petición"));
+
         } finally {
             lock.unlock();
         }
@@ -442,6 +466,10 @@ public final class Ping {
             task.cancel(false); // Cancela la tarea sin interrumpir si está en progreso
             scheduler.shutdown(); // Cambiar .close() por .shutdown()
             reset();
+
+            if (callback != null)
+                callback.accept(new PingMessageResponse(host, "El servicio está detenido"));
+
             return;
         }
 
