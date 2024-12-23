@@ -3,4 +3,7 @@
  */
 module PingUtils {
     requires org.jetbrains.annotations;
+    exports io.github.blacknoize404.pingUtils.methods;
+    exports io.github.blacknoize404.pingUtils.responses;
+    exports io.github.blacknoize404.pingUtils;
 }

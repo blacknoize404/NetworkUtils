@@ -137,7 +137,7 @@ public final class Ping {
      * outcome of the ping operation. This allows the user to process different types
      * of responses, including success, informational messages, and errors, accordingly.
      */
-    private final Consumer<PingResponse> callback;
+    private Consumer<PingResponse> callback;
 
     /**
      * Manages and schedules the periodic execution of tasks related to the Ping instance.
@@ -185,22 +185,21 @@ public final class Ping {
     /**
      * Creates a new Ping object configured to execute a fixed quantity of requests.
      *
-     * @param location the target location (e.g., a URL or host) where the requests will be sent.
+     * @param location        the target location (e.g., a URL or host) where the requests will be sent.
      * @param requestQuantity the number of requests to be sent. Must be greater than 0.
-     * @param method the PingMethodFactory defining the method to handle the request operation.
-     * @param callback the Consumer to handle the PingResponse after each request.
+     * @param method          the PingMethodFactory defining the method to handle the request operation.
+     * @param callback        the Consumer to handle the PingResponse after each request.
      * @return a new Ping instance configured with the specified request quantity and method.
      * @throws IllegalArgumentException if the requestQuantity is less than or equal to 0.
      */
     public static Ping ofRequestQuantity(String location,
-                                                  int requestQuantity,
-                                                  PingMethodFactory method,
-                                                  Consumer<PingResponse> callback) {
+                                         int requestQuantity,
+                                         PingMethodFactory method) {
 
         if (requestQuantity <= 0)
             throw new IllegalArgumentException("Debe definir una cantidad de peticiones mayor que 0");
 
-        return new Ping(location, -1, -1, requestQuantity, method, callback);
+        return new Ping(location, -1, -1, requestQuantity, method, null);
 
     }
 
@@ -208,23 +207,22 @@ public final class Ping {
      * Creates a new Ping object that repeatedly sends ping requests to the specified host
      * at a defined update rate in milliseconds.
      *
-     * @param host the target host to which the ping requests will be sent.
+     * @param host             the target host to which the ping requests will be sent.
      * @param updateRateMillis the interval in milliseconds between consecutive ping requests.
      *                         Must be greater than 0.
-     * @param method the PingMethodFactory defining the ping implementation to use.
-     * @param callback the Consumer to handle the response of each ping operation.
+     * @param method           the PingMethodFactory defining the ping implementation to use.
+     * @param callback         the Consumer to handle the response of each ping operation.
      * @return a Ping instance configured with the specified update rate and parameters.
      * @throws IllegalArgumentException if updateRateMillis is less than or equal to 0.
      */
     public static Ping withUpdateRate(String host,
-                                               int updateRateMillis,
-                                               PingMethodFactory method,
-                                               Consumer<PingResponse> callback) {
+                                      int updateRateMillis,
+                                      PingMethodFactory method) {
 
         if (updateRateMillis < 0)
             throw new IllegalArgumentException("Debe definir una duración mayor que 0 milisegundos");
 
-        return new Ping(host, -1, updateRateMillis, 0, method, callback);
+        return new Ping(host, -1, updateRateMillis, 0, method, null);
 
     }
 
@@ -232,21 +230,20 @@ public final class Ping {
      * Creates a new Ping instance that sends ping requests to the specified location
      * with a defined timeout duration.
      *
-     * @param location the target location (e.g., a URL or host) where the ping request will be sent.
+     * @param location      the target location (e.g., a URL or host) where the ping request will be sent.
      * @param timeoutMillis the maximum duration in milliseconds to wait for a response. Must be greater than 0.
-     * @param method the PingMethodFactory defining the implementation for handling the ping request.
-     * @param callback the Consumer to process the PingResponse after the request completes.
+     * @param method        the PingMethodFactory defining the implementation for handling the ping request.
+     * @param callback      the Consumer to process the PingResponse after the request completes.
      * @return a new Ping instance configured with the specified timeout and parameters.
      * @throws IllegalArgumentException if the timeoutMillis is less than or equal to 0.
      */
     public static Ping withTimeout(String location,
-                                            int timeoutMillis,
-                                            PingMethodFactory method,
-                                            Consumer<PingResponse> callback) {
+                                   int timeoutMillis,
+                                   PingMethodFactory method) {
 
         if (timeoutMillis < 0) throw new IllegalArgumentException("Debe definir una duración mayor que 0 milisegundos");
 
-        return new Ping(location, timeoutMillis, -1, 0, method, callback);
+        return new Ping(location, timeoutMillis, -1, 0, method, null);
 
     }
 
@@ -258,27 +255,26 @@ public final class Ping {
      * PingMethodFactory, and responses are processed by the provided Consumer.
      *
      * @param location the target location (e.g., a URL or host) where the ping requests will be sent.
-     * @param method the PingMethodFactory defining the implementation for handling the ping requests.
+     * @param method   the PingMethodFactory defining the implementation for handling the ping requests.
      * @param callback the Consumer to process the PingResponse after each request.
      * @return a new Ping instance configured with the specified parameters.
      */
     public static Ping of(String location,
-                                   PingMethodFactory method,
-                                   Consumer<PingResponse> callback) {
+                          PingMethodFactory method) {
 
-        return new Ping(location, -1, -1, 0, method, callback);
+        return new Ping(location, -1, -1, 0, method, null);
 
     }
 
     /**
      * Constructs a new instance of the Ping class.
      *
-     * @param host the target host to which the ping requests will be sent. Must not be null or blank.
-     * @param timeoutMillis the maximum duration in milliseconds to wait for a response. Defaults to 10000 if less than 0.
+     * @param host             the target host to which the ping requests will be sent. Must not be null or blank.
+     * @param timeoutMillis    the maximum duration in milliseconds to wait for a response. Defaults to 10000 if less than 0.
      * @param updateRateMillis the interval in milliseconds between consecutive ping requests. Defaults to 1000 if less than 0.
-     * @param requestQuantity the number of requests to be sent. If greater than 0, enables fixed request quantity mode.
-     * @param method the PingMethodFactory defining the implementation for sending ping requests.
-     * @param callback the Consumer to process the PingResponse after each ping request.
+     * @param requestQuantity  the number of requests to be sent. If greater than 0, enables fixed request quantity mode.
+     * @param method           the PingMethodFactory defining the implementation for sending ping requests.
+     * @param callback         the Consumer to process the PingResponse after each ping request.
      * @throws IllegalArgumentException if the host is null or blank.
      */
     private Ping(String host,
@@ -329,6 +325,10 @@ public final class Ping {
 
     }
 
+    public void setOnPingResponse(Consumer<PingResponse> callback) {
+        this.callback = callback;
+    }
+
     /**
      * Starts the Ping task, scheduling it to execute at fixed intervals defined by the update rate.
      * <p>
@@ -346,7 +346,7 @@ public final class Ping {
             if (state == RUNNING) throw new IllegalStateException("El scheduler ya ha sido iniciado");
             state = RUNNING;
 
-            task = scheduler.scheduleAtFixedRate(this::run, 0, updateRateMillis, TimeUnit.MILLISECONDS);
+            task = scheduler.scheduleWithFixedDelay(this::run, 0, updateRateMillis, TimeUnit.MILLISECONDS);
         } finally {
             lock.unlock();
         }
@@ -363,10 +363,10 @@ public final class Ping {
      * check for the task's completion status. It pauses the current thread in
      * intervals of 100 milliseconds until the task reports that it is done.
      *
-     * @throws InterruptedException if the thread executing this method is
-     *                              interrupted while sleeping.
+     * @throws InterruptedException  if the thread executing this method is
+     *                               interrupted while sleeping.
      * @throws IllegalStateException if the scheduler is not currently RUNNING
-     *                                or if the scheduled task is null.
+     *                               or if the scheduled task is null.
      */
     public void poll() throws InterruptedException {
 
@@ -418,12 +418,12 @@ public final class Ping {
      * <p>
      * This method performs the following:
      * - If the instance is configured with a fixed quantity of ping requests, it decrements the number
-     *   of remaining requests and transitions to the STOPPED state when no requests are left.
+     * of remaining requests and transitions to the STOPPED state when no requests are left.
      * - If the Ping instance is not in the RUNNING state, it cancels the current task without interrupting
-     *   it, shuts down the scheduler, and resets internal state.
+     * it, shuts down the scheduler, and resets internal state.
      * - When in the RUNNING state, it attempts to send a ping to the host using the provided method,
-     *   waits for a defined interval, and handles interruptions or errors by invoking the callback
-     *   with an error response.
+     * waits for a defined interval, and handles interruptions or errors by invoking the callback
+     * with an error response.
      * <p>
      * This method is intended to be executed at a fixed interval as part of a scheduled task. It ensures
      * proper transition of state and resource management in response to changes in task state and
@@ -445,13 +445,11 @@ public final class Ping {
             return;
         }
 
-        try {
-            method.ping(host, timeoutMillis, callback);
-            TimeUnit.MILLISECONDS.sleep(this.updateRateMillis);
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt(); // Restablece el estado de interrupción
-            callback.accept(new PingErrorResponse(host, e.getMessage()));
-        }
+        method.ping(host, timeoutMillis, pingResponse -> {
+
+            if (callback != null) callback.accept(pingResponse);
+
+        });
 
     }
 

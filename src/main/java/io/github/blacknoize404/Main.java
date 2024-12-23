@@ -1,19 +1,16 @@
 package io.github.blacknoize404;
 
+
 import io.github.blacknoize404.pingUtils.Ping;
-import io.github.blacknoize404.pingUtils.methods.*;
+import io.github.blacknoize404.pingUtils.methods.PingMethod;
 import io.github.blacknoize404.pingUtils.responses.PingErrorResponse;
 import io.github.blacknoize404.pingUtils.responses.PingResponse;
 import io.github.blacknoize404.pingUtils.responses.PingSuccessResponse;
 
-import java.util.HashSet;
-import java.util.Set;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
 public class Main {
-
-    public static Set<Long> set = new HashSet<>();
 
     public static void main(String[] args) throws InterruptedException {
 
@@ -50,20 +47,22 @@ public class Main {
 //        p2.start();
 
         Ping p3 = Ping.withTimeout(
-                "ahora.cu",
+                "google.com.cu",
                 500,
-                PingMethod.HTTP_SECURE.method(),
-                Main::receive);
+                PingMethod.ICMP.method());
 
         p3.start();
 
-        CountDownLatch c = new CountDownLatch(1);
+        p3.setOnPingResponse(Main::receive);
 
-        c.await(2, TimeUnit.SECONDS);
-
-        p3.changeUrl("google.com.cu");
-
-        c.await(10, TimeUnit.SECONDS);
+        p3.poll();
+//        CountDownLatch c = new CountDownLatch(1);
+//
+//        c.await(2, TimeUnit.SECONDS);
+//
+//        p3.changeUrl("google.com.cu");
+//
+//        c.await(100, TimeUnit.SECONDS);
 
     }
 

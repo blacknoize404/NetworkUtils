@@ -6,6 +6,7 @@ import io.github.blacknoize404.pingUtils.responses.PingSuccessResponse;
 
 import java.io.IOException;
 import java.net.InetAddress;
+import java.net.UnknownHostException;
 import java.util.function.Consumer;
 
 public final class ICMPMethodFactory implements PingMethodFactory {
@@ -19,24 +20,38 @@ public final class ICMPMethodFactory implements PingMethodFactory {
             long initial = System.currentTimeMillis();
             boolean reachable = address.isReachable(timeoutMillis);
 
-            if (!reachable) callback.accept(
-                    new PingErrorResponse(
-                            host,
-                            "No se pudo conectar con el servidor"
-                    )
-            );
-            else {
+            if (!reachable) {
+                callback.accept(
+                        new PingErrorResponse(
+                                host,
+                                "No se pudo conectar con el servidor"
+                        )
+                );
+            } else {
                 long duration = System.currentTimeMillis() - initial;
                 callback.accept(
-                        new PingSuccessResponse(host, duration)
+                        new PingSuccessResponse(
+                                host,
+                                duration
+                        )
                 );
             }
 
-        } catch (IOException e) {
+        } catch (UnknownHostException e) {
             callback.accept(
-                    new PingErrorResponse(host, e.getMessage()
+                    new PingErrorResponse(
+                            host,
+                            "No se pudo resolver el host con el servidor DNS"
                     )
             );
+        } catch (IOException e) {
+            callback.accept(
+                    new PingErrorResponse(
+                            host,
+                            "(" + e.getClass().getName() + ") " + e.getMessage()
+                    )
+            );
+            throw new RuntimeException(e);
         }
 
     }
