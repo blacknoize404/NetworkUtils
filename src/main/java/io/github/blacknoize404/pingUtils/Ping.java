@@ -32,7 +32,7 @@ public final class Ping {
      * This enumeration is integral to managing the lifecycle and operational
      * behavior of the Ping class.
      */
-    enum State {
+    public enum State {
         RUNNING,
         STOPPED
     }
@@ -176,6 +176,8 @@ public final class Ping {
      */
     private final ReentrantLock lock = new ReentrantLock();
 
+    private Consumer<State> onChangeStateEvent;
+
     /**
      * Creates a new Ping object configured to execute a fixed quantity of requests.
      *
@@ -195,7 +197,7 @@ public final class Ping {
         return new Ping(location, -1, -1, requestQuantity, method, null);
 
     }
-
+//    TODO DETECTOR DE CAMBIO DE CONEXIÓN
     /**
      * Creates a new Ping object that repeatedly sends ping requests to the specified host
      * at a defined update rate in milliseconds.
@@ -245,7 +247,6 @@ public final class Ping {
      * without a fixed timeout or update rate. The ping requests are handled using the provided
      * PingMethodFactory, and responses are processed by the provided Consumer.
      *
-     * @param location the target location (e.g., a URL or host) where the ping requests will be sent.
      * @param method   the PingMethodFactory defining the implementation for handling the ping requests.
      * @return a new Ping instance configured with the specified parameters.
      */
@@ -360,16 +361,20 @@ public final class Ping {
      * @throws IllegalStateException if the Ping task is already running.
      */
     public void start() {
+
         lock.lock();
+        if (isRunning()) stop();
 
         try {
-            if (state == RUNNING) throw new IllegalStateException("El scheduler ya ha sido iniciado");
+            if (state == RUNNING || (task != null && task.state() == Future.State.RUNNING) ) throw new IllegalStateException("El scheduler ya ha sido iniciado");
             state = RUNNING;
 
             task = scheduler.scheduleWithFixedDelay(this::run, 0, updateRateMillis, TimeUnit.MILLISECONDS);
 
             if (callback != null)
                 callback.accept(new PingMessageResponse(host, "Iniciando petición"));
+
+            if (onChangeStateEvent != null) onChangeStateEvent.accept(state);
 
         } finally {
             lock.unlock();
@@ -425,14 +430,25 @@ public final class Ping {
      * the state to indicate it is no longer active.
      */
     public void stop() {
+
+        task.cancel(false); // Cancela la tarea sin interrumpir si está en progreso
+//        scheduler.shutdown(); // Cambiar .close() por .shutdown()
+        reset();
+
+        if (callback != null)
+            callback.accept(
+                    new PingMessageResponse(host, "El servicio está detenido")
+            );
+
         state = STOPPED;
+
+        if (onChangeStateEvent != null) onChangeStateEvent.accept(state);
+
     }
 
     private void reset() {
 
-        if (isUsingFixedRequestQuantity) {
-            requestsLeft = requestQuantity;
-        }
+        if (isUsingFixedRequestQuantity) requestsLeft = requestQuantity;
 
     }
 
@@ -460,17 +476,6 @@ public final class Ping {
             if (requestsLeft == 0) state = STOPPED;
             else requestsLeft -= 1;
 
-        }
-
-        if (state != RUNNING) {
-            task.cancel(false); // Cancela la tarea sin interrumpir si está en progreso
-            scheduler.shutdown(); // Cambiar .close() por .shutdown()
-            reset();
-
-            if (callback != null)
-                callback.accept(new PingMessageResponse(host, "El servicio está detenido"));
-
-            return;
         }
 
         method.ping(host, timeoutMillis, pingResponse -> {
@@ -521,4 +526,7 @@ public final class Ping {
 
     }
 
+    public void setOnChangeStateEvent(Consumer<State> onChangeStateEvent) {
+        this.onChangeStateEvent = onChangeStateEvent;
+    }
 }
