@@ -51,7 +51,6 @@ public final class ICMPMethodFactory implements PingMethodFactory {
                             "(" + e.getClass().getName() + ") " + e.getMessage()
                     )
             );
-            throw new RuntimeException(e);
         }
 
     }

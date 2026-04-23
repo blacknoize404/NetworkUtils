@@ -3,7 +3,7 @@ package io.github.blacknoize404.pingUtils.responses;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-class PingSuccessResponseTest {
+class HostActivityServiceSuccessResponseTest {
 
     PingSuccessResponse pingSuccessResponse;
 

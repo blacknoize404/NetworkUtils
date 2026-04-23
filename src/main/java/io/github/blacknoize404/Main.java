@@ -1,14 +1,11 @@
 package io.github.blacknoize404;
 
 
-import io.github.blacknoize404.pingUtils.Ping;
+import io.github.blacknoize404.pingUtils.HostActivityService;
 import io.github.blacknoize404.pingUtils.methods.PingMethod;
 import io.github.blacknoize404.pingUtils.responses.PingErrorResponse;
 import io.github.blacknoize404.pingUtils.responses.PingResponse;
 import io.github.blacknoize404.pingUtils.responses.PingSuccessResponse;
-
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.TimeUnit;
 
 public class Main {
 
@@ -46,7 +43,7 @@ public class Main {
 //
 //        p2.start();
 
-        Ping p3 = Ping.of(
+        HostActivityService p3 = HostActivityService.of(
                 "google.com.cu",
                 500,
                 -1,

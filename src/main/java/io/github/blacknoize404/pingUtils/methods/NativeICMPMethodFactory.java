@@ -25,14 +25,13 @@ public final class NativeICMPMethodFactory implements PingMethodFactory {
         );
 
         try {
-
             Process process = pb.start();
 
             BufferedReader stdInput = new BufferedReader(new InputStreamReader(process.getInputStream(), StandardCharsets.UTF_8));
             BufferedReader stdError = new BufferedReader(new InputStreamReader(process.getErrorStream(), StandardCharsets.UTF_8));
 
-            processBuffer(host, stdInput, callback);
-            processBuffer(host, stdError, callback);
+            processInputBuffer(host, stdInput, callback);
+            processErrorBuffer(host, stdError, callback);
 
         } catch (RuntimeException | IOException e) {
             callback.accept(
@@ -45,8 +44,7 @@ public final class NativeICMPMethodFactory implements PingMethodFactory {
 
     }
 
-    private void processBuffer(String host, BufferedReader reader, Consumer<PingResponse> callback) {
-
+    private void processInputBuffer(String host, BufferedReader reader, Consumer<PingResponse> callback) {
 
         String line;
 
@@ -70,9 +68,9 @@ public final class NativeICMPMethodFactory implements PingMethodFactory {
                     new PingSuccessResponse(
                             host,
                             responseMillis));
-        }
 
-        if (line.equals("Tiempo de espera agotado para esta solicitud.") ||
+        }
+        else if (line.equals("Tiempo de espera agotado para esta solicitud.") ||
                 line.startsWith("La solicitud de ping no pudo encontrar el host")) {
             callback.accept(
                     new PingErrorResponse(
@@ -88,6 +86,28 @@ public final class NativeICMPMethodFactory implements PingMethodFactory {
                     )
             );
         }
+    }
+
+    private void processErrorBuffer(String host, BufferedReader reader, Consumer<PingResponse> callback) {
+
+        String line;
+
+        Optional<String> lines = reader
+                .lines()
+                .reduce(
+                        (s, s2) -> s + "\n" + s2
+                );
+
+        if (lines.isEmpty()) return;
+
+        line = lines.get();
+
+        callback.accept(
+                new PingMessageResponse(
+                        host,
+                        line
+                )
+        );
     }
 
 }

@@ -6,7 +6,7 @@
 
     <groupId>io.github.blacknoize404</groupId>
     <artifactId>PingUtils</artifactId>
-    <version>1.2-SNAPSHOT</version>
+    <version>1.3-SNAPSHOT</version>
 
     <properties>
         <maven.compiler.source>23</maven.compiler.source>

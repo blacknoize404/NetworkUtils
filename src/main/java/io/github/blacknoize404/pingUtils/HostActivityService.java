@@ -8,8 +8,8 @@ import java.util.concurrent.*;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Consumer;
 
-import static io.github.blacknoize404.pingUtils.Ping.State.RUNNING;
-import static io.github.blacknoize404.pingUtils.Ping.State.STOPPED;
+import static io.github.blacknoize404.pingUtils.HostActivityService.Status.RUNNING;
+import static io.github.blacknoize404.pingUtils.HostActivityService.Status.STOPPED;
 
 /**
  * Represents a utility for monitoring the response of a host using various methodologies.
@@ -17,7 +17,7 @@ import static io.github.blacknoize404.pingUtils.Ping.State.STOPPED;
  * allowing different configurations such as setting request quantities, update rates, and timeouts.
  * The results of the ping operations are processed using a consumer callback.
  */
-public final class Ping {
+public final class HostActivityService {
 
     /**
      * Represents the operational states of a Ping instance.
@@ -32,7 +32,7 @@ public final class Ping {
      * This enumeration is integral to managing the lifecycle and operational
      * behavior of the Ping class.
      */
-    public enum State {
+    public enum Status {
         RUNNING,
         STOPPED
     }
@@ -40,7 +40,7 @@ public final class Ping {
     /**
      * Represents the current operational state of the {@code Ping} instance.
      * <p>
-     * The {@code state} can have values defined by the {@link State} enum, such
+     * The {@code state} can have values defined by the {@link Status} enum, such
      * as {@code RUNNING} or {@code STOPPED}, to track whether the pinging
      * operation is actively executing or has been halted.
      * <p>
@@ -48,7 +48,7 @@ public final class Ping {
      * {@code Ping} instance, including starting, stopping, or exhausting a fixed
      * number of ping requests if applicable.
      */
-    private State state;
+    private Status status;
 
     /**
      * The hostname or IP address of the target system that is being monitored or pinged.
@@ -176,7 +176,7 @@ public final class Ping {
      */
     private final ReentrantLock lock = new ReentrantLock();
 
-    private Consumer<State> onChangeStateEvent;
+    private Consumer<Status> onChangeStateEvent;
 
     /**
      * Creates a new Ping object configured to execute a fixed quantity of requests.
@@ -187,17 +187,17 @@ public final class Ping {
      * @return a new Ping instance configured with the specified request quantity and method.
      * @throws IllegalArgumentException if the requestQuantity is less than or equal to 0.
      */
-    public static Ping ofRequestQuantity(String location,
-                                         int requestQuantity,
-                                         PingMethodFactory method) {
+    public static HostActivityService ofRequestQuantity(String location,
+                                                        int requestQuantity,
+                                                        PingMethodFactory method) {
 
         if (requestQuantity <= 0)
             throw new IllegalArgumentException("Debe definir una cantidad de peticiones mayor que 0");
 
-        return new Ping(location, -1, -1, requestQuantity, method, null);
+        return new HostActivityService(location, -1, -1, requestQuantity, method, null);
 
     }
-//    TODO DETECTOR DE CAMBIO DE CONEXIÓN
+
     /**
      * Creates a new Ping object that repeatedly sends ping requests to the specified host
      * at a defined update rate in milliseconds.
@@ -209,14 +209,14 @@ public final class Ping {
      * @return a Ping instance configured with the specified update rate and parameters.
      * @throws IllegalArgumentException if updateRateMillis is less than or equal to 0.
      */
-    public static Ping withUpdateRate(String host,
-                                      int updateRateMillis,
-                                      PingMethodFactory method) {
+    public static HostActivityService withUpdateRate(String host,
+                                                     int updateRateMillis,
+                                                     PingMethodFactory method) {
 
         if (updateRateMillis < 0)
             throw new IllegalArgumentException("Debe definir una duración mayor que 0 milisegundos");
 
-        return new Ping(host, -1, updateRateMillis, 0, method, null);
+        return new HostActivityService(host, -1, updateRateMillis, 0, method, null);
 
     }
 
@@ -230,13 +230,13 @@ public final class Ping {
      * @return a new Ping instance configured with the specified timeout and parameters.
      * @throws IllegalArgumentException if the timeoutMillis is less than or equal to 0.
      */
-    public static Ping withTimeout(String location,
-                                   int timeoutMillis,
-                                   PingMethodFactory method) {
+    public static HostActivityService withTimeout(String location,
+                                                  int timeoutMillis,
+                                                  PingMethodFactory method) {
 
         if (timeoutMillis < 0) throw new IllegalArgumentException("Debe definir una duración mayor que 0 milisegundos");
 
-        return new Ping(location, timeoutMillis, -1, 0, method, null);
+        return new HostActivityService(location, timeoutMillis, -1, 0, method, null);
 
     }
 
@@ -247,19 +247,19 @@ public final class Ping {
      * without a fixed timeout or update rate. The ping requests are handled using the provided
      * PingMethodFactory, and responses are processed by the provided Consumer.
      *
-     * @param method   the PingMethodFactory defining the implementation for handling the ping requests.
+     * @param method the PingMethodFactory defining the implementation for handling the ping requests.
      * @return a new Ping instance configured with the specified parameters.
      */
-    public static Ping of(String host,
-                          int timeoutMillis,
-                          int updateRateMillis,
-                          int requestQuantity,
-                          PingMethodFactory method,
-                          Consumer<PingResponse> callback) {
+    public static HostActivityService of(String host,
+                                         int timeoutMillis,
+                                         int updateRateMillis,
+                                         int requestQuantity,
+                                         PingMethodFactory method,
+                                         Consumer<PingResponse> callback) {
 
         if (method == null) throw new IllegalArgumentException("Debe definir un método no nulo");
 
-        return new Ping(host, timeoutMillis, updateRateMillis, requestQuantity, method, callback);
+        return new HostActivityService(host, timeoutMillis, updateRateMillis, requestQuantity, method, callback);
 
     }
 
@@ -274,12 +274,12 @@ public final class Ping {
      * @param callback         the Consumer to process the PingResponse after each ping request.
      * @throws IllegalArgumentException if the host is null or blank.
      */
-    private Ping(String host,
-                 int timeoutMillis,
-                 int updateRateMillis,
-                 int requestQuantity,
-                 PingMethodFactory method,
-                 Consumer<PingResponse> callback) {
+    private HostActivityService(String host,
+                                int timeoutMillis,
+                                int updateRateMillis,
+                                int requestQuantity,
+                                PingMethodFactory method,
+                                Consumer<PingResponse> callback) {
 
         if (host == null || host.isBlank()) {
             throw new IllegalArgumentException("El host no puede ser nulo o vacío");
@@ -299,7 +299,7 @@ public final class Ping {
         this.callback = callback;
         this.scheduler = Executors.newSingleThreadScheduledExecutor(new DaemonThreadFactory());
 
-        this.state = STOPPED;
+        this.status = STOPPED;
     }
 
     /**
@@ -319,7 +319,6 @@ public final class Ping {
         }
 
         this.host = host;
-
     }
 
     public void setTimeoutMillis(int timeoutMillis) {
@@ -366,15 +365,16 @@ public final class Ping {
         if (isRunning()) stop();
 
         try {
-            if (state == RUNNING || (task != null && task.state() == Future.State.RUNNING) ) throw new IllegalStateException("El scheduler ya ha sido iniciado");
-            state = RUNNING;
+            if (status == RUNNING || (task != null && task.state() == Future.State.RUNNING))
+                throw new IllegalStateException("El scheduler ya ha sido iniciado");
+            status = RUNNING;
 
             task = scheduler.scheduleWithFixedDelay(this::run, 0, updateRateMillis, TimeUnit.MILLISECONDS);
 
             if (callback != null)
                 callback.accept(new PingMessageResponse(host, "Iniciando petición"));
 
-            if (onChangeStateEvent != null) onChangeStateEvent.accept(state);
+            if (onChangeStateEvent != null) onChangeStateEvent.accept(status);
 
         } finally {
             lock.unlock();
@@ -399,7 +399,7 @@ public final class Ping {
      */
     public void poll() throws InterruptedException {
 
-        if (state != RUNNING) throw new IllegalStateException("No se ha iniciado el scheduler");
+        if (status != RUNNING) throw new IllegalStateException("No se ha iniciado el scheduler");
 
         if (task == null) {
             throw new IllegalStateException("Tarea programada no inicializada");
@@ -421,7 +421,7 @@ public final class Ping {
      */
     public boolean isRunning() {
 
-        return state == RUNNING;
+        return status == RUNNING;
 
     }
 
@@ -440,9 +440,9 @@ public final class Ping {
                     new PingMessageResponse(host, "El servicio está detenido")
             );
 
-        state = STOPPED;
+        status = STOPPED;
 
-        if (onChangeStateEvent != null) onChangeStateEvent.accept(state);
+        if (onChangeStateEvent != null) onChangeStateEvent.accept(status);
 
     }
 
@@ -473,7 +473,7 @@ public final class Ping {
 
         if (isUsingFixedRequestQuantity) {
 
-            if (requestsLeft == 0) state = STOPPED;
+            if (requestsLeft == 0) status = STOPPED;
             else requestsLeft -= 1;
 
         }
@@ -516,7 +516,6 @@ public final class Ping {
      * in the background without affecting the application's lifecycle.
      */
     private static class DaemonThreadFactory implements ThreadFactory {
-
         @Override
         public Thread newThread(@NotNull Runnable r) {
             Thread thread = new Thread(r);
@@ -526,7 +525,7 @@ public final class Ping {
 
     }
 
-    public void setOnChangeStateEvent(Consumer<State> onChangeStateEvent) {
+    public void setOnChangeStateEvent(Consumer<Status> onChangeStateEvent) {
         this.onChangeStateEvent = onChangeStateEvent;
     }
 }
