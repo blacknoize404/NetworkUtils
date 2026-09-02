@@ -6,6 +6,8 @@ import org.jetbrains.annotations.NotNull;
 
 import java.util.concurrent.*;
 import java.util.concurrent.locks.ReentrantLock;
+import javafx.beans.property.ReadOnlyObjectProperty;
+import javafx.beans.property.ReadOnlyObjectWrapper;
 import java.util.function.Consumer;
 
 import static io.github.blacknoize404.pingUtils.HostActivityService.Status.RUNNING;
@@ -48,7 +50,7 @@ public final class HostActivityService {
      * {@code Ping} instance, including starting, stopping, or exhausting a fixed
      * number of ping requests if applicable.
      */
-    private Status status;
+    private final ReadOnlyObjectWrapper<Status> status = new ReadOnlyObjectWrapper<>(STOPPED);
 
     /**
      * The hostname or IP address of the target system that is being monitored or pinged.
@@ -179,6 +181,13 @@ public final class HostActivityService {
     private Consumer<Status> onChangeStateEvent;
 
     /**
+     * Observable property holding the latest {@link PingResponse} emitted by the
+     * service. Subscribe with {@code responseProperty().addListener(...)}; any
+     * number of consumers may observe it without replacing each other.
+     */
+    private final ReadOnlyObjectWrapper<PingResponse> response = new ReadOnlyObjectWrapper<>();
+
+    /**
      * Creates a new Ping object configured to execute a fixed quantity of requests.
      *
      * @param location        the target location (e.g., a URL or host) where the requests will be sent.
@@ -298,8 +307,6 @@ public final class HostActivityService {
         this.method = method;
         this.callback = callback;
         this.scheduler = Executors.newSingleThreadScheduledExecutor(new DaemonThreadFactory());
-
-        this.status = STOPPED;
     }
 
     /**
@@ -365,16 +372,15 @@ public final class HostActivityService {
         if (isRunning()) stop();
 
         try {
-            if (status == RUNNING || (task != null && task.state() == Future.State.RUNNING))
+            if (status.get() == RUNNING || (task != null && task.state() == Future.State.RUNNING))
                 throw new IllegalStateException("El scheduler ya ha sido iniciado");
-            status = RUNNING;
+            status.set(RUNNING);
 
             task = scheduler.scheduleWithFixedDelay(this::run, 0, updateRateMillis, TimeUnit.MILLISECONDS);
 
-            if (callback != null)
-                callback.accept(new PingMessageResponse(host, "Iniciando petición"));
+            emit(new PingMessageResponse(host, "Iniciando petición"));
 
-            if (onChangeStateEvent != null) onChangeStateEvent.accept(status);
+            if (onChangeStateEvent != null) onChangeStateEvent.accept(status.get());
 
         } finally {
             lock.unlock();
@@ -399,7 +405,7 @@ public final class HostActivityService {
      */
     public void poll() throws InterruptedException {
 
-        if (status != RUNNING) throw new IllegalStateException("No se ha iniciado el scheduler");
+        if (status.get() != RUNNING) throw new IllegalStateException("No se ha iniciado el scheduler");
 
         if (task == null) {
             throw new IllegalStateException("Tarea programada no inicializada");
@@ -421,7 +427,7 @@ public final class HostActivityService {
      */
     public boolean isRunning() {
 
-        return status == RUNNING;
+        return status.get() == RUNNING;
 
     }
 
@@ -435,14 +441,11 @@ public final class HostActivityService {
 //        scheduler.shutdown(); // Cambiar .close() por .shutdown()
         reset();
 
-        if (callback != null)
-            callback.accept(
-                    new PingMessageResponse(host, "El servicio está detenido")
-            );
+        emit(new PingMessageResponse(host, "El servicio está detenido"));
 
-        status = STOPPED;
+        status.set(STOPPED);
 
-        if (onChangeStateEvent != null) onChangeStateEvent.accept(status);
+        if (onChangeStateEvent != null) onChangeStateEvent.accept(status.get());
 
     }
 
@@ -473,16 +476,23 @@ public final class HostActivityService {
 
         if (isUsingFixedRequestQuantity) {
 
-            if (requestsLeft == 0) status = STOPPED;
+            if (requestsLeft == 0) status.set(STOPPED);
             else requestsLeft -= 1;
 
         }
 
-        method.ping(host, timeoutMillis, pingResponse -> {
+        method.ping(host, timeoutMillis, this::emit);
 
-            if (callback != null) callback.accept(pingResponse);
+    }
 
-        });
+    /**
+     * Delivers a {@link PingResponse} to the registered {@link #setOnPingResponse(Consumer)
+     * callback} and publishes it through {@link #responseProperty()}.
+     */
+    private void emit(PingResponse pingResponse) {
+
+        response.set(pingResponse);
+        if (callback != null) callback.accept(pingResponse);
 
     }
 
@@ -527,5 +537,26 @@ public final class HostActivityService {
 
     public void setOnChangeStateEvent(Consumer<Status> onChangeStateEvent) {
         this.onChangeStateEvent = onChangeStateEvent;
+    }
+
+    /**
+     * The observable lifecycle state of this service ({@link Status#RUNNING} or
+     * {@link Status#STOPPED}). Read it with {@code statusProperty().get()} or
+     * subscribe with {@code addListener}; changes fire on the scheduler thread.
+     *
+     * @return the read-only status property.
+     */
+    public ReadOnlyObjectProperty<Status> statusProperty() {
+        return status.getReadOnlyProperty();
+    }
+
+    /**
+     * The observable stream of {@link PingResponse} results. Every consumer may
+     * subscribe without replacing others; events fire on the scheduler thread.
+     *
+     * @return the read-only response property.
+     */
+    public ReadOnlyObjectProperty<PingResponse> responseProperty() {
+        return response.getReadOnlyProperty();
     }
 }

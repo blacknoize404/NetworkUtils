@@ -62,13 +62,28 @@ service.setMethod(PingMethod.NATIVE_ICMP.method());
 service.setOnPingResponse(r -> { /* a different callback */ });
 ```
 
+### Observable properties
+
+Since 1.5, the service also exposes JavaFX properties (`javafx.base`, headless).
+Any number of consumers can subscribe without replacing each other — unlike the
+single-slot `Consumer` setters:
+
+```java
+service.responseProperty().addListener((obs, old, r) -> { /* every ping */ });
+service.statusProperty().addListener((obs, old, s) -> { /* RUNNING/STOPPED */ });
+HostActivityService.Status current = service.statusProperty().get();
+```
+
+Events fire on the scheduler thread; marshal UI updates yourself
+(e.g. `Platform.runLater`).
+
 ## Getting it
 
 ```xml
 <dependency>
     <groupId>io.github.blacknoize404</groupId>
     <artifactId>PingUtils</artifactId>
-    <version>1.4-RELEASE</version>
+    <version>1.5-RELEASE</version>
 </dependency>
 ```
 
