@@ -6,6 +6,8 @@ import org.jetbrains.annotations.NotNull;
 
 import java.util.concurrent.*;
 import java.util.concurrent.locks.ReentrantLock;
+import java.util.Deque;
+import java.util.List;
 import javafx.beans.property.ReadOnlyObjectProperty;
 import javafx.beans.property.ReadOnlyObjectWrapper;
 import java.util.function.Consumer;
@@ -188,6 +190,14 @@ public final class HostActivityService {
     private final ReadOnlyObjectWrapper<PingResponse> response = new ReadOnlyObjectWrapper<>();
 
     /**
+     * Bounded history of the latest emitted responses, oldest first. Lets views
+     * that attach late — a chart window opened minutes after the service
+     * started — rehydrate with the data collected in the background.
+     */
+    private static final int HISTORY_LIMIT = 512;
+    private final Deque<PingResponse> history = new ConcurrentLinkedDeque<>();
+
+    /**
      * Creates a new Ping object configured to execute a fixed quantity of requests.
      *
      * @param location        the target location (e.g., a URL or host) where the requests will be sent.
@@ -326,6 +336,7 @@ public final class HostActivityService {
         }
 
         this.host = host;
+        history.clear();
     }
 
     public void setTimeoutMillis(int timeoutMillis) {
@@ -345,6 +356,7 @@ public final class HostActivityService {
 
     public void setMethod(PingMethodFactory method) {
         this.method = method;
+        history.clear();
     }
 
     /**
@@ -491,9 +503,23 @@ public final class HostActivityService {
      */
     private void emit(PingResponse pingResponse) {
 
+        while (history.size() >= HISTORY_LIMIT) history.pollFirst();
+        history.addLast(pingResponse);
+
         response.set(pingResponse);
         if (callback != null) callback.accept(pingResponse);
 
+    }
+
+    /**
+     * Snapshot of the latest {@link #HISTORY_LIMIT} emitted responses, oldest
+     * first. Each {@link PingResponse} carries {@link PingResponse#getTimestamp()}
+     * so consumers can place it on a time axis.
+     *
+     * @return an immutable copy of the recent response history.
+     */
+    public List<PingResponse> history() {
+        return List.copyOf(history);
     }
 
     /**

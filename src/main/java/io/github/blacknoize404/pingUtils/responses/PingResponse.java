@@ -1,8 +1,12 @@
 package io.github.blacknoize404.pingUtils.responses;
 
+import java.time.Instant;
+
 public abstract class PingResponse {
 
     protected final String host;
+
+    private final Instant timestamp = Instant.now();
 
     protected PingResponse(String host) {
         this.host = host;
@@ -10,6 +14,14 @@ public abstract class PingResponse {
 
     public String getHost() {
         return host;
+    }
+
+    /**
+     * The instant at which this response was produced, useful for replaying
+     * the service's history into time-based views.
+     */
+    public Instant getTimestamp() {
+        return timestamp;
     }
 
     public abstract String getResponse();
