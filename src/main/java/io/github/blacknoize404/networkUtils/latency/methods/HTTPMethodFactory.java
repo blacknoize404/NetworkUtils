@@ -1,8 +1,8 @@
-package io.github.blacknoize404.pingUtils.methods;
+package io.github.blacknoize404.networkUtils.latency.methods;
 
-import io.github.blacknoize404.pingUtils.responses.PingErrorResponse;
-import io.github.blacknoize404.pingUtils.responses.PingResponse;
-import io.github.blacknoize404.pingUtils.responses.PingSuccessResponse;
+import io.github.blacknoize404.networkUtils.latency.responses.PingErrorResponse;
+import io.github.blacknoize404.networkUtils.latency.responses.PingResponse;
+import io.github.blacknoize404.networkUtils.latency.responses.PingSuccessResponse;
 
 import java.io.IOException;
 import java.net.*;

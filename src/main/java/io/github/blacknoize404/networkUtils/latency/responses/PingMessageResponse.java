@@ -1,4 +1,4 @@
-package io.github.blacknoize404.pingUtils.responses;
+package io.github.blacknoize404.networkUtils.latency.responses;
 
 public final class PingMessageResponse extends PingResponse {
 

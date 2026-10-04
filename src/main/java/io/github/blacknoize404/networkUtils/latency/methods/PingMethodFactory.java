@@ -1,6 +1,6 @@
-package io.github.blacknoize404.pingUtils.methods;
+package io.github.blacknoize404.networkUtils.latency.methods;
 
-import io.github.blacknoize404.pingUtils.responses.PingResponse;
+import io.github.blacknoize404.networkUtils.latency.responses.PingResponse;
 import java.util.function.Consumer;
 
 /**

@@ -5,11 +5,11 @@
     <modelVersion>4.0.0</modelVersion>
 
     <groupId>io.github.blacknoize404</groupId>
-    <artifactId>PingUtils</artifactId>
-    <version>1.6-RELEASE</version>
+    <artifactId>NetworkUtils</artifactId>
+    <version>1.0-RELEASE</version>
     <packaging>jar</packaging>
-    <name>Ping Utils</name>
-    <description>Un módulo más para hacer ping a servidores.</description>
+    <name>Network Utils</name>
+    <description>Detectores de red: tiempo de respuesta de un host y velocidad de descarga y subida del sistema.</description>
     <url>https://blacknoize404.github.io</url>
 
     <licenses>
@@ -30,9 +30,9 @@
     </developers>
 
     <scm>
-        <connection>scm:git:git://github.com/blacknoize404/PingUtils.git</connection>
-        <developerConnection>scm:git:ssh://github.com:blacknoize404/PingUtils.git</developerConnection>
-        <url>https://github.com/blacknoize404/PingUtils/tree/main</url>
+        <connection>scm:git:git://github.com/blacknoize404/NetworkUtils.git</connection>
+        <developerConnection>scm:git:ssh://github.com:blacknoize404/NetworkUtils.git</developerConnection>
+        <url>https://github.com/blacknoize404/NetworkUtils/tree/main</url>
     </scm>
 
     <properties>

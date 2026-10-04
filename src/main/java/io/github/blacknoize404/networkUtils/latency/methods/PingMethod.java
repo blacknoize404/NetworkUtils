@@ -1,4 +1,4 @@
-package io.github.blacknoize404.pingUtils.methods;
+package io.github.blacknoize404.networkUtils.latency.methods;
 
 public enum PingMethod {
 

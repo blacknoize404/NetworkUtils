@@ -1,4 +1,4 @@
-# PingUtils
+# NetworkUtils
 
 > A small Java library for monitoring the activity of a remote host: it pings a server on a schedule and
 > reports every response — success with latency, error, or status message — through a callback.
@@ -20,14 +20,18 @@ and APIs in real time.
   response callback can be changed on the fly; the next cycles pick the new values up.
 - **State events.** `setOnChangeStateEvent` is notified when the service changes `Status`
   (`RUNNING` / `STOPPED`).
-- **Java module** (`module PingUtils`): only `org.jetbrains.annotations` is required.
+- **Download and upload speed** of the whole system through `TrafficMonitor` (see below).
+- **Java module** (`module NetworkUtils`): `javafx.base` (headless) and `org.jetbrains.annotations`.
+
+> NetworkUtils is the former PingUtils (up to 1.6). The latency detector keeps its API; its packages moved
+> from `io.github.blacknoize404.pingUtils` to `io.github.blacknoize404.networkUtils.latency`.
 
 ## Using it
 
 ```java
-import io.github.blacknoize404.pingUtils.HostActivityService;
-import io.github.blacknoize404.pingUtils.methods.PingMethod;
-import io.github.blacknoize404.pingUtils.responses.*;
+import io.github.blacknoize404.networkUtils.latency.HostActivityService;
+import io.github.blacknoize404.networkUtils.latency.methods.PingMethod;
+import io.github.blacknoize404.networkUtils.latency.responses.*;
 
 HostActivityService service = HostActivityService.withTimeout(
         "api.example.com",
@@ -77,17 +81,39 @@ HostActivityService.Status current = service.statusProperty().get();
 Events fire on the scheduler thread; marshal UI updates yourself
 (e.g. `Platform.runLater`).
 
+## Download and upload speed
+
+`TrafficMonitor` measures how many bytes per second the system downloads and uploads, summed over all
+network adapters (loopback excluded). Java does not expose those counters, so it reads them from the
+operating system: `netstat -e` on Windows (any language) and `/proc/net/dev` on Linux. On any other system
+`isAvailable()` is `false` and the monitor does nothing.
+
+```java
+import io.github.blacknoize404.networkUtils.traffic.TrafficMonitor;
+
+TrafficMonitor traffic = new TrafficMonitor();
+traffic.sampleProperty().addListener((obs, old, s) ->
+        System.out.printf("down %.0f B/s, up %.0f B/s%n", s.downloadBytesPerSecond(), s.uploadBytesPerSecond()));
+traffic.start();                 // one sample per second
+
+traffic.setIntervalSeconds(5);   // sample less often while nobody is watching
+List<TrafficMonitor.Sample> recent = traffic.history();   // last 512 samples, oldest first
+```
+
+Like the latency service, samples are published from the sampling thread, so UI code must hop to its own
+thread. On Windows every sample spawns a process, which is why the interval is adjustable.
+
 ## Getting it
 
 ```xml
 <dependency>
     <groupId>io.github.blacknoize404</groupId>
-    <artifactId>PingUtils</artifactId>
-    <version>1.5-RELEASE</version>
+    <artifactId>NetworkUtils</artifactId>
+    <version>1.0-RELEASE</version>
 </dependency>
 ```
 
-On the module path: `requires PingUtils;`. Requires Java 17 or newer (built for 25).
+On the module path: `requires NetworkUtils;`. Requires Java 17 or newer (built for 25).
 
 ## License
 

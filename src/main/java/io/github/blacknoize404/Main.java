@@ -1,11 +1,11 @@
 package io.github.blacknoize404;
 
 
-import io.github.blacknoize404.pingUtils.HostActivityService;
-import io.github.blacknoize404.pingUtils.methods.PingMethod;
-import io.github.blacknoize404.pingUtils.responses.PingErrorResponse;
-import io.github.blacknoize404.pingUtils.responses.PingResponse;
-import io.github.blacknoize404.pingUtils.responses.PingSuccessResponse;
+import io.github.blacknoize404.networkUtils.latency.HostActivityService;
+import io.github.blacknoize404.networkUtils.latency.methods.PingMethod;
+import io.github.blacknoize404.networkUtils.latency.responses.PingErrorResponse;
+import io.github.blacknoize404.networkUtils.latency.responses.PingResponse;
+import io.github.blacknoize404.networkUtils.latency.responses.PingSuccessResponse;
 
 public class Main {
 

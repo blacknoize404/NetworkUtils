@@ -1,7 +1,7 @@
-package io.github.blacknoize404.pingUtils;
+package io.github.blacknoize404.networkUtils.latency;
 
-import io.github.blacknoize404.pingUtils.methods.PingMethodFactory;
-import io.github.blacknoize404.pingUtils.responses.*;
+import io.github.blacknoize404.networkUtils.latency.methods.PingMethodFactory;
+import io.github.blacknoize404.networkUtils.latency.responses.*;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.concurrent.*;
@@ -12,8 +12,8 @@ import javafx.beans.property.ReadOnlyObjectProperty;
 import javafx.beans.property.ReadOnlyObjectWrapper;
 import java.util.function.Consumer;
 
-import static io.github.blacknoize404.pingUtils.HostActivityService.Status.RUNNING;
-import static io.github.blacknoize404.pingUtils.HostActivityService.Status.STOPPED;
+import static io.github.blacknoize404.networkUtils.latency.HostActivityService.Status.RUNNING;
+import static io.github.blacknoize404.networkUtils.latency.HostActivityService.Status.STOPPED;
 
 /**
  * Represents a utility for monitoring the response of a host using various methodologies.
