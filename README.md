@@ -97,7 +97,7 @@ traffic.sampleProperty().addListener((obs, old, s) ->
 traffic.start();                 // one sample per second
 
 traffic.setIntervalSeconds(5);   // sample less often while nobody is watching
-List<TrafficMonitor.Sample> recent = traffic.history();   // last 512 samples, oldest first
+List<TrafficMonitor.Sample> recent = traffic.history();   // last 2048 samples, oldest first
 ```
 
 Like the latency service, samples are published from the sampling thread, so UI code must hop to its own
@@ -109,7 +109,7 @@ thread. On Windows every sample spawns a process, which is why the interval is a
 <dependency>
     <groupId>io.github.blacknoize404</groupId>
     <artifactId>NetworkUtils</artifactId>
-    <version>1.0-RELEASE</version>
+    <version>1.1-RELEASE</version>
 </dependency>
 ```
 

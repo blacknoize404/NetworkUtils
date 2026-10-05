@@ -194,7 +194,7 @@ public final class HostActivityService {
      * that attach late — a chart window opened minutes after the service
      * started — rehydrate with the data collected in the background.
      */
-    private static final int HISTORY_LIMIT = 512;
+    private static final int HISTORY_LIMIT = 2048;
     private final Deque<PingResponse> history = new ConcurrentLinkedDeque<>();
 
     /**

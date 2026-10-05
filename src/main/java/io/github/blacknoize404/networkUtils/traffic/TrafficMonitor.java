@@ -28,7 +28,7 @@ public final class TrafficMonitor implements AutoCloseable {
     public record Sample(Instant time, double downloadBytesPerSecond, double uploadBytesPerSecond) {
     }
 
-    private static final int HISTORY_LIMIT = 512;
+    private static final int HISTORY_LIMIT = 2048;
 
     private final Optional<TrafficSource> source = TrafficSource.create();
     private final ReadOnlyObjectWrapper<Sample> sample = new ReadOnlyObjectWrapper<>();
