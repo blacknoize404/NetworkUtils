@@ -449,7 +449,8 @@ public final class HostActivityService {
      */
     public void stop() {
 
-        task.cancel(false); // Cancela la tarea sin interrumpir si está en progreso
+        // Sin iniciar todavía no hay tarea que cancelar
+        if (task != null) task.cancel(false); // Cancela la tarea sin interrumpir si está en progreso
 //        scheduler.shutdown(); // Cambiar .close() por .shutdown()
         reset();
 
