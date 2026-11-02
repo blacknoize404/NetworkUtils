@@ -83,10 +83,10 @@ Events fire on the scheduler thread; marshal UI updates yourself
 
 ## Download and upload speed
 
-`TrafficMonitor` measures how many bytes per second the system downloads and uploads, summed over all
-network adapters (loopback excluded). Java does not expose those counters, so it reads them from the
-operating system: `netstat -e` on Windows (any language) and `/proc/net/dev` on Linux. On any other system
-`isAvailable()` is `false` and the monitor does nothing.
+`TrafficMonitor` measures how many bytes per second the system downloads and uploads. Java does not
+expose those counters, so it reads them from the operating system: the interface table
+(`GetIfTable2`, through the foreign function API) on Windows and `/proc/net/dev` on Linux. On any other
+system `isAvailable()` is `false` and the monitor does nothing.
 
 ```java
 import io.github.blacknoize404.networkUtils.traffic.TrafficMonitor;
@@ -100,8 +100,31 @@ traffic.setIntervalSeconds(5);   // sample less often while nobody is watching
 List<TrafficMonitor.Sample> recent = traffic.history();   // last 2048 samples, oldest first
 ```
 
+### Choosing the adapter
+
+By default the monitor follows the adapter that carries the default route (`TrafficSelection.AUTO`), so
+switching from Wi-Fi to a cable moves the measurement with it. You can also add up every adapter, or pin one:
+
+```java
+List<TrafficInterface> adapters = traffic.refreshInterfaces();   // connected first; call again to refresh
+
+traffic.setSelection(TrafficSelection.ALL);
+traffic.setSelection(TrafficSelection.only(adapters.get(0).id()));   // ids are stable: GUID / interface name
+traffic.setSelection(TrafficSelection.AUTO);
+
+traffic.activeInterfaceProperty();   // the adapter being measured, null when several are added up
+```
+
+A change applies on the next sample without losing traffic. Loopback, Windows' driver filter layers
+(which repeat each adapter's counters) and its VPN/tunnel plumbing adapters are never listed. If the
+system cannot tell the adapters apart (`supportsInterfaceSelection()` is `false`: the native call fails on
+Windows, where `netstat -e` is the fallback), every selection measures the whole system.
+
+On Windows the foreign function API needs `--enable-native-access=NetworkUtils` (or `ALL-UNNAMED` on the
+class path); without it Java prints a warning, and a future release will refuse the call.
+
 Like the latency service, samples are published from the sampling thread, so UI code must hop to its own
-thread. On Windows every sample spawns a process, which is why the interval is adjustable.
+thread.
 
 ## Getting it
 
@@ -109,7 +132,7 @@ thread. On Windows every sample spawns a process, which is why the interval is a
 <dependency>
     <groupId>io.github.blacknoize404</groupId>
     <artifactId>NetworkUtils</artifactId>
-    <version>1.1-RELEASE</version>
+    <version>1.2-RELEASE</version>
 </dependency>
 ```
 

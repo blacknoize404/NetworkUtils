@@ -6,7 +6,10 @@ import java.io.IOException;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 class TrafficSourceTest {
 
@@ -35,7 +38,7 @@ class TrafficSourceTest {
     }
 
     @Test
-    void procNetDevSumsInterfacesExceptLoopback() {
+    void procNetDevListsEveryInterfaceExceptLoopback() {
 
         List<String> lines = List.of(
                 "Inter-|   Receive                                                |  Transmit",
@@ -45,7 +48,39 @@ class TrafficSourceTest {
                 " wlan0: 10 1 0 0 0 0 0 0 20 2 0 0 0 0 0 0"
         );
 
-        assertArrayEquals(new long[]{110, 220}, TrafficSource.ProcNetDev.parse(lines));
+        List<TrafficSource.Counters> counters = TrafficSource.ProcNetDev.parse(lines, name -> !name.equals("wlan0"));
+
+        assertEquals(List.of("eth0", "wlan0"), counters.stream().map(c -> c.info().id()).toList());
+        assertEquals(List.of(true, false), counters.stream().map(c -> c.info().up()).toList());
+        assertArrayEquals(new long[]{110, 220}, TrafficSource.sum(counters));
+
+    }
+
+    @Test
+    void selectionOfASingleInterfaceNeedsItsId() {
+
+        assertThrows(IllegalArgumentException.class, () -> new TrafficSelection(TrafficSelection.Mode.ONLY, null));
+        assertEquals("eth0", TrafficSelection.only("eth0").interfaceId());
+
+    }
+
+    @Test
+    void windowsInterfaceTableListsRealAdaptersOnce() throws IOException {
+
+        assumeTrue(System.getProperty("os.name", "").toLowerCase().startsWith("windows"));
+
+        TrafficSource table;
+        try {
+            table = new TrafficSource.WindowsIfTable();
+        } catch (Throwable e) {
+            assumeTrue(false, "native access is not enabled");
+            return;
+        }
+        List<TrafficSource.Counters> counters = table.readInterfaces();
+
+        assertEquals(counters.size(), counters.stream().map(c -> c.info().id()).distinct().count());
+        // Driver filter layers (WFP, QoS, Native WiFi...) repeat the adapter's counters and must not show up.
+        assertTrue(counters.stream().noneMatch(c -> c.info().name().matches(".*-(WFP|QoS|Native WiFi|Virtual WiFi).*-\\d{4}")));
 
     }
 
