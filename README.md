@@ -10,7 +10,11 @@ and APIs in real time.
 
 - **Periodic pings on a background thread.** `start()` launches a scheduled task; `stop()` and `close()`
   shut it down cleanly. The service is `AutoCloseable` and its worker threads are daemons.
-- **Several ping methods**, interchangeable at runtime: plain ICMP, native ICMP, HTTP and HTTPS.
+- **Several ping methods**, interchangeable at runtime: plain ICMP, native ICMP, HTTP and HTTPS (a TCP connect),
+  a TCP connect to any port (`host:port`), DNS resolution time and a real HTTP request that checks the status
+  code and the body (see below).
+- **Outage diagnosis**: when a host stops answering, `NetworkDiagnosis` tells whether the router, the
+  Internet connection, the DNS server or the host itself is at fault.
 - **A callback per response.** Every probe produces a `PingResponse`:
   - `PingSuccessResponse` — the host answered, with the round-trip time in milliseconds
     (`getResponseMsecs()`).
@@ -81,6 +85,37 @@ HostActivityService.Status current = service.statusProperty().get();
 Events fire on the scheduler thread; marshal UI updates yourself
 (e.g. `Platform.runLater`).
 
+## More ways to check a host
+
+`PingMethod` also has `TCP_PORT` (the host is written `name:port`, e.g. `db.example.com:5432`), `DNS` (how long the
+system takes to resolve the name, without connecting) and `HTTP_CHECK` (a real GET request that counts only as a
+success if the status is below 400).
+
+For stricter checks build the method yourself and hand it to the service:
+
+```java
+// Only a 200 whose body contains "ok" is an answer; a 500 or an error page is a failure
+HostActivityService service = HostActivityService.of("https://api.example.com/health", 2000, 1000, -1,
+        new HttpCheckMethodFactory(200, "ok"), null);
+```
+
+DNS measurements need the JVM not to cache lookups: the `DNS` method switches that cache off when it loads, which only
+works if nothing has resolved a name yet.
+
+## Diagnosing an outage
+
+```java
+import io.github.blacknoize404.networkUtils.diagnosis.NetworkDiagnosis;
+
+NetworkDiagnosis.Result result = NetworkDiagnosis.diagnose("api.example.com", 2000);
+result.cause();     // LOCAL_NETWORK, INTERNET, DNS, HOST or UNKNOWN
+result.gateway();   // the router that was checked, or null if none was found
+```
+
+It checks, in order, the default gateway (`route print` on Windows, `/proc/net/route` on Linux), well-known public
+servers (ICMP, then TCP) and the resolution of the host name; the first thing that fails is the cause, and if all of
+them work the problem is the host. Call it once a host has failed: it can take a few seconds.
+
 ## Download and upload speed
 
 `TrafficMonitor` measures how many bytes per second the system downloads and uploads. Java does not
@@ -113,6 +148,9 @@ traffic.setSelection(TrafficSelection.only(adapters.get(0).id()));   // ids are 
 traffic.setSelection(TrafficSelection.AUTO);
 
 traffic.activeInterfaceProperty();   // the adapter being measured, null when several are added up
+
+// Each sample also carries the bytes moved in its interval, to add up how much data was used
+// sample.downloadBytes(), sample.uploadBytes()
 ```
 
 A change applies on the next sample without losing traffic. Loopback, Windows' driver filter layers
@@ -132,7 +170,7 @@ thread.
 <dependency>
     <groupId>io.github.blacknoize404</groupId>
     <artifactId>NetworkUtils</artifactId>
-    <version>1.2-RELEASE</version>
+    <version>1.3-RELEASE</version>
 </dependency>
 ```
 

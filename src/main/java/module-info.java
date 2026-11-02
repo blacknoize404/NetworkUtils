@@ -9,4 +9,5 @@ module NetworkUtils {
     exports io.github.blacknoize404.networkUtils.latency.responses;
     exports io.github.blacknoize404.networkUtils.latency;
     exports io.github.blacknoize404.networkUtils.traffic;
+    exports io.github.blacknoize404.networkUtils.diagnosis;
 }

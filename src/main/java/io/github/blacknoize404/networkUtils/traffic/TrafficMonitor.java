@@ -35,8 +35,17 @@ import java.util.concurrent.TimeUnit;
  */
 public final class TrafficMonitor implements AutoCloseable {
 
-    /** Speeds in bytes per second at the instant {@code time}. */
-    public record Sample(Instant time, double downloadBytesPerSecond, double uploadBytesPerSecond) {
+    /**
+     * Speeds in bytes per second at the instant {@code time}, and the bytes received and sent in the
+     * interval that ended then (to add up how much data was used).
+     */
+    public record Sample(Instant time, double downloadBytesPerSecond, double uploadBytesPerSecond,
+                         long downloadBytes, long uploadBytes) {
+
+        public Sample(Instant time, double downloadBytesPerSecond, double uploadBytesPerSecond) {
+            this(time, downloadBytesPerSecond, uploadBytesPerSecond, 0, 0);
+        }
+
     }
 
     private static final int HISTORY_LIMIT = 2048;
@@ -220,7 +229,9 @@ public final class TrafficMonitor implements AutoCloseable {
             publish(new Sample(
                     Instant.now(),
                     (totals[0] - previousTotals[0]) / seconds,
-                    (totals[1] - previousTotals[1]) / seconds
+                    (totals[1] - previousTotals[1]) / seconds,
+                    totals[0] - previousTotals[0],
+                    totals[1] - previousTotals[1]
             ));
         }
         previousTotals = totals;
@@ -249,7 +260,7 @@ public final class TrafficMonitor implements AutoCloseable {
                 }
             }
             if (measured) {
-                publish(new Sample(Instant.now(), received / seconds, sent / seconds));
+                publish(new Sample(Instant.now(), received / seconds, sent / seconds, received, sent));
             }
         }
 
