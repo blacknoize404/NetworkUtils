@@ -174,7 +174,7 @@ thread.
 </dependency>
 ```
 
-On the module path: `requires NetworkUtils;`. Requires Java 17 or newer (built for 25).
+On the module path: `requires NetworkUtils;`. Requires Java 17 or newer (built for 27).
 
 ## License
 
