@@ -65,6 +65,9 @@ interface TrafficSource {
         if (os.contains("linux")) {
             return Optional.of(new ProcNetDev());
         }
+        if (os.contains("mac") || os.contains("darwin")) {
+            return Optional.of(new MacNetstat());
+        }
         return Optional.empty();
 
     }
@@ -289,6 +292,65 @@ interface TrafficSource {
                         0,
                         Long.parseLong(fields[0]),
                         Long.parseLong(fields[8])));
+            }
+            return counters;
+
+        }
+
+    }
+
+    /**
+     * {@code netstat -ibn} en macOS: una fila por interfaz y dirección. Los bytes reales
+     * lleva la fila del enlace ({@code <Link#n>}); tener una fila con IP marca la interfaz
+     * como conectada.
+     */
+    final class MacNetstat implements TrafficSource {
+
+        @Override
+        public long[] readTotals() throws IOException {
+            return sum(readInterfaces());
+        }
+
+        @Override
+        public List<Counters> readInterfaces() throws IOException {
+            Process process = new ProcessBuilder("netstat", "-ibn").redirectErrorStream(true).start();
+            try (InputStream in = process.getInputStream()) {
+                return parse(new String(in.readAllBytes(), StandardCharsets.UTF_8));
+            }
+        }
+
+        static List<Counters> parse(String output) {
+
+            // Name Mtu Network Address Ipkts Ierrs Ibytes Opkts Oerrs Obytes Coll
+            java.util.Map<String, long[]> bytes = new java.util.LinkedHashMap<>();
+            java.util.Set<String> addressed = new java.util.HashSet<>();
+
+            for (String line : output.split("\\R")) {
+                String[] fields = line.strip().split("\\s+");
+                if (fields.length < 10 || fields[0].equals("Name") || fields[0].equals("lo0")) {
+                    continue;
+                }
+                boolean link = fields[2].startsWith("<Link");
+                if (link || !bytes.containsKey(fields[0])) {
+                    try {
+                        bytes.put(fields[0], new long[]{Long.parseLong(fields[6]), Long.parseLong(fields[9])});
+                    } catch (NumberFormatException e) {
+                        // Cabeceras o columnas de otro formato: no son contadores
+                    }
+                }
+                if (!link) {
+                    addressed.add(fields[0]);
+                }
+            }
+
+            List<Counters> counters = new ArrayList<>();
+            for (var entry : bytes.entrySet()) {
+                String name = entry.getKey();
+                counters.add(new Counters(
+                        new TrafficInterface(name, name, "", addressed.contains(name)),
+                        0,
+                        entry.getValue()[0],
+                        entry.getValue()[1]));
             }
             return counters;
 

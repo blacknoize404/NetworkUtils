@@ -115,4 +115,31 @@ class MethodsTest {
 
     }
 
+    private static PingResponse parseNative(String output) {
+        PingResponse[] result = new PingResponse[1];
+        NativeICMPMethodFactory.parseUnix("host", output, response -> result[0] = response);
+        return result[0];
+    }
+
+    @Test
+    void nativePingReadsTheUnixOutput() {
+
+        String ok = "PING 8.8.8.8 (8.8.8.8): 56 data bytes\n"
+                + "64 bytes from 8.8.8.8: icmp_seq=0 ttl=117 time=14.2 ms\n\n"
+                + "--- 8.8.8.8 ping statistics ---\n"
+                + "1 packets transmitted, 1 packets received, 0.0% packet loss";
+        PingResponse success = parseNative(ok);
+        assertInstanceOf(PingSuccessResponse.class, success);
+        assertEquals(14, ((PingSuccessResponse) success).getResponseMsecs());
+
+        String down = "PING 1.2.3.4 (1.2.3.4): 56 data bytes\n\n"
+                + "--- 1.2.3.4 ping statistics ---\n"
+                + "1 packets transmitted, 0 packets received, 100.0% packet loss";
+        assertInstanceOf(PingErrorResponse.class, parseNative(down));
+
+        String unknown = "ping: cannot resolve no-existe.invalid: Unknown host";
+        assertInstanceOf(PingErrorResponse.class, parseNative(unknown));
+
+    }
+
 }

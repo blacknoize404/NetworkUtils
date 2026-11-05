@@ -27,6 +27,21 @@ class DefaultGatewayTest {
     }
 
     @Test
+    void macTakesTheGatewayLine() {
+
+        String output = "   route to: default\n"
+                + "destination: default\n"
+                + "       mask: default\n"
+                + "    gateway: 192.168.1.1\n"
+                + "  interface: en0\n"
+                + "      flags: <UP,GATEWAY,DONE,STATIC,PRCLONING,GLOBAL>\n";
+
+        assertEquals(Optional.of("192.168.1.1"), DefaultGateway.parseMac(output));
+        assertEquals(Optional.empty(), DefaultGateway.parseMac("route: writing to routing socket: not in table"));
+
+    }
+
+    @Test
     void linuxDecodesTheLittleEndianGateway() {
 
         List<String> lines = List.of(

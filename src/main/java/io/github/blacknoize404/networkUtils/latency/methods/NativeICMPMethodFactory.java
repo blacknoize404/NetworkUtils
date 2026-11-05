@@ -20,9 +20,7 @@ public final class NativeICMPMethodFactory implements PingMethodFactory {
     @Override
     public void ping(String host, int timeoutMillis, Consumer<PingResponse> callback) {
 
-        ProcessBuilder pb = new ProcessBuilder(
-                List.of("ping", host, "-n", "1", "-w", String.valueOf(timeoutMillis))
-        );
+        ProcessBuilder pb = new ProcessBuilder(command(host, timeoutMillis));
 
         try {
             Process process = pb.start();
@@ -57,6 +55,11 @@ public final class NativeICMPMethodFactory implements PingMethodFactory {
         if (lines.isEmpty()) return;
 
         line = lines.get();
+
+        if (!isWindows()) {
+            parseUnix(host, line, callback);
+            return;
+        }
 
         final Pattern p = Pattern.compile("[A-z]+=\\d+ [A-z]+=(\\d+)ms [A-z]+=\\d+");
         final Matcher m = p.matcher(line);
@@ -108,6 +111,55 @@ public final class NativeICMPMethodFactory implements PingMethodFactory {
                         line
                 )
         );
+    }
+
+    /**
+     * El comando de ping del sistema: los argumentos de Windows no valen fuera de él.
+     * En macOS (BSD) {@code -W} es la espera por respuesta en milisegundos; en Linux
+     * (iputils) es en segundos, con {@code -n} para no resolver nombres a la inversa.
+     */
+    static List<String> command(String host, int timeoutMillis) {
+
+        if (isWindows()) {
+            return List.of("ping", host, "-n", "1", "-w", String.valueOf(timeoutMillis));
+        }
+        if (isMac()) {
+            return List.of("ping", host, "-c", "1", "-W", String.valueOf(timeoutMillis));
+        }
+        long seconds = Math.max(1L, Math.round(timeoutMillis / 1000.0));
+        return List.of("ping", host, "-n", "-c", "1", "-W", String.valueOf(seconds));
+
+    }
+
+    private static boolean isWindows() {
+        return System.getProperty("os.name", "").toLowerCase().startsWith("windows");
+    }
+
+    private static boolean isMac() {
+        String os = System.getProperty("os.name", "").toLowerCase();
+        return os.contains("mac") || os.contains("darwin");
+    }
+
+    private static final Pattern UNIX_TIME = Pattern.compile("time[=<](\\d+(?:\\.\\d+)?)\\s*ms");
+    private static final Pattern UNIX_FAIL = Pattern.compile(
+            "100(?:\\.0)?% packet loss|cannot resolve|Unknown host|Name or service not known|"
+                    + "No route to host|Request timeout|Time to live exceeded",
+            Pattern.CASE_INSENSITIVE);
+
+    /** La salida del ping de macOS y Linux: {@code ... time=12.3 ms} al responder, errores en inglés. */
+    static void parseUnix(String host, String output, Consumer<PingResponse> callback) {
+
+        Matcher ok = UNIX_TIME.matcher(output);
+        if (ok.find()) {
+            callback.accept(new PingSuccessResponse(host, Math.round(Double.parseDouble(ok.group(1)))));
+            return;
+        }
+        if (UNIX_FAIL.matcher(output).find()) {
+            callback.accept(new PingErrorResponse(host, output.replace('\n', ' ')));
+            return;
+        }
+        callback.accept(new PingMessageResponse(host, output));
+
     }
 
 }

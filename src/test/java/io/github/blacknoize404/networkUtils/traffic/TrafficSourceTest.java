@@ -57,6 +57,24 @@ class TrafficSourceTest {
     }
 
     @Test
+    void macNetstatKeepsLinkBytesAndMarksInterfacesWithAnAddressUp() {
+
+        String output = "Name  Mtu   Network       Address            Ipkts Ierrs     Ibytes    Opkts Oerrs     Obytes  Coll\n"
+                + "lo0   16384 <Link#1>                          100   0         9999      100   0         9999    0\n"
+                + "lo0   16384 127           localhost         100   0         9999      100   0         9999    0\n"
+                + "en0   1500  <Link#6>      aa:bb:cc:dd:ee:ff 5000  0         1000000   4000  0         200000  0\n"
+                + "en0   1500  10.0.0/24     10.0.0.50         5000  0         1000000   4000  0         200000  0\n"
+                + "en1   1500  <Link#7>      11:22:33:44:55:66 10    0         500       10    0         500     0\n";
+
+        List<TrafficSource.Counters> counters = TrafficSource.MacNetstat.parse(output);
+
+        assertEquals(List.of("en0", "en1"), counters.stream().map(c -> c.info().id()).toList());
+        assertEquals(List.of(true, false), counters.stream().map(c -> c.info().up()).toList());
+        assertArrayEquals(new long[]{1000500, 200500}, TrafficSource.sum(counters));
+
+    }
+
+    @Test
     void selectionOfASingleInterfaceNeedsItsId() {
 
         assertThrows(IllegalArgumentException.class, () -> new TrafficSelection(TrafficSelection.Mode.ONLY, null));

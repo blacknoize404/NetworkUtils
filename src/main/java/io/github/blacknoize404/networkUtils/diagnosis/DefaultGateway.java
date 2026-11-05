@@ -12,8 +12,9 @@ import java.util.regex.Pattern;
 
 /**
  * La puerta de enlace (el router) por la que el sistema sale a Internet: la del encaminamiento por
- * defecto de menor métrica. Se lee de {@code route print} en Windows y de {@code /proc/net/route} en
- * Linux; en otro sistema, o si no hay ruta por defecto, está vacía.
+ * defecto de menor métrica. Se lee de {@code route print} en Windows, de {@code /proc/net/route} en
+ * Linux y de {@code route -n get default} en macOS; en otro sistema, o si no hay ruta por defecto,
+ * está vacía.
  */
 public final class DefaultGateway {
 
@@ -36,6 +37,12 @@ public final class DefaultGateway {
             }
             if (os.contains("linux")) {
                 return parseLinux(Files.readAllLines(Path.of("/proc/net/route")));
+            }
+            if (os.contains("mac") || os.contains("darwin")) {
+                Process process = new ProcessBuilder("route", "-n", "get", "default").redirectErrorStream(true).start();
+                try (InputStream in = process.getInputStream()) {
+                    return parseMac(new String(in.readAllBytes(), StandardCharsets.UTF_8));
+                }
             }
         } catch (IOException | RuntimeException e) {
             // Sin puerta conocida el diagnóstico sigue por Internet.
@@ -88,6 +95,19 @@ public final class DefaultGateway {
             }
         }
         return Optional.ofNullable(best);
+
+    }
+
+    /** La puerta en la salida de {@code route -n get default} de macOS (la línea «gateway:»). */
+    static Optional<String> parseMac(String output) {
+
+        for (String line : output.split("\\R")) {
+            String[] fields = line.strip().split(":\\s*");
+            if (fields.length == 2 && fields[0].equals("gateway")) {
+                return Optional.of(fields[1]);
+            }
+        }
+        return Optional.empty();
 
     }
 
