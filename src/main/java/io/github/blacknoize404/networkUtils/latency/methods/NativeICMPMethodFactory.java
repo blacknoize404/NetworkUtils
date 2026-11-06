@@ -17,8 +17,26 @@ import java.util.regex.Pattern;
 
 public final class NativeICMPMethodFactory implements PingMethodFactory {
 
+    /**
+     * Primero la vía nativa sin proceso ({@link NativeEcho}: IcmpSendEcho en Windows,
+     * socket ICMP datagram en Linux y macOS). Cuando no aplica —IPv6, permisos,
+     * biblioteca ausente— el clásico {@code ping} del sistema sigue respondiendo.
+     */
     @Override
     public void ping(String host, int timeoutMillis, Consumer<PingResponse> callback) {
+
+        try {
+            callback.accept(NativeEcho.echo(host, timeoutMillis));
+            return;
+        } catch (NativeEcho.Unavailable e) {
+            // El proceso del sistema cubre lo que la vía nativa no alcanza.
+        }
+        pingViaProcess(host, timeoutMillis, callback);
+
+    }
+
+    /** El eco lanzando el {@code ping} del sistema: más caro pero nunca falta. */
+    private void pingViaProcess(String host, int timeoutMillis, Consumer<PingResponse> callback) {
 
         ProcessBuilder pb = new ProcessBuilder(command(host, timeoutMillis));
 
