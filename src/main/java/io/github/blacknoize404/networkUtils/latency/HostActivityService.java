@@ -42,6 +42,22 @@ public final class HostActivityService {
     }
 
     /**
+     * Cómo reparte {@link #updateRateMillis} el planificador:
+     * <ul>
+     * <li>{@code AFTER_COMPLETION} — pausa de esa duración entre el fin de una
+     * petición y el inicio de la siguiente; el período real es el intervalo
+     * más lo que tarde cada petición.</li>
+     * <li>{@code EVERY_INTERVAL} — una petición sale cada {@code updateRateMillis};
+     * si la petición tarda más que el intervalo, la siguiente corre en cuanto
+     * termine (el planificador tiene un solo hilo: nunca se solapan).</li>
+     * </ul>
+     */
+    public enum IntervalMode {
+        AFTER_COMPLETION,
+        EVERY_INTERVAL
+    }
+
+    /**
      * Represents the current operational state of the {@code Ping} instance.
      * <p>
      * The {@code state} can have values defined by the {@link Status} enum, such
@@ -82,6 +98,12 @@ public final class HostActivityService {
      * the timing of successive ping operations.
      */
     private int updateRateMillis;
+
+    /**
+     * Cómo interpreta {@link #updateRateMillis} el planificador; véase {@link IntervalMode}.
+     * Por defecto {@link IntervalMode#AFTER_COMPLETION}, el comportamiento histórico.
+     */
+    private IntervalMode intervalMode = IntervalMode.AFTER_COMPLETION;
 
     /**
      * Indicates whether the Ping instance is configured to use a fixed number of requests.
@@ -347,6 +369,14 @@ public final class HostActivityService {
         this.updateRateMillis = updateRateMillis;
     }
 
+    /**
+     * Cómo reparte {@link #setUpdateRateMillis(int)} el planificador. Se aplica
+     * desde el siguiente {@link #start()}.
+     */
+    public void setIntervalMode(IntervalMode intervalMode) {
+        this.intervalMode = intervalMode;
+    }
+
     public void setRequestQuantity(int requestQuantity) {
 
         this.isUsingFixedRequestQuantity = requestQuantity > 0;
@@ -388,7 +418,10 @@ public final class HostActivityService {
                 throw new IllegalStateException("El scheduler ya ha sido iniciado");
             status.set(RUNNING);
 
-            task = scheduler.scheduleWithFixedDelay(this::run, 0, updateRateMillis, TimeUnit.MILLISECONDS);
+            task = switch (intervalMode) {
+                case AFTER_COMPLETION -> scheduler.scheduleWithFixedDelay(this::run, 0, updateRateMillis, TimeUnit.MILLISECONDS);
+                case EVERY_INTERVAL -> scheduler.scheduleAtFixedRate(this::run, 0, updateRateMillis, TimeUnit.MILLISECONDS);
+            };
 
             emit(new PingMessageResponse(host, "Iniciando petición"));
 
