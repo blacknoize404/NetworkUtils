@@ -10,9 +10,12 @@ and APIs in real time.
 
 - **Periodic pings on a background thread.** `start()` launches a scheduled task; `stop()` and `close()`
   shut it down cleanly. The service is `AutoCloseable` and its worker threads are daemons.
-- **Several ping methods**, interchangeable at runtime: plain ICMP, native ICMP, HTTP and HTTPS (a TCP connect),
-  a TCP connect to any port (`host:port`), DNS resolution time and a real HTTP request that checks the status
-  code and the body (see below).
+- **Several ping methods**, interchangeable at runtime: ICMP through the system's `ping` process,
+  native ICMP (`IcmpSendEcho` on Windows, an ICMP datagram socket on Linux and macOS — it falls back to
+  the `ping` process when the native path can't reach: IPv6, permissions, a missing library), HTTP and
+  HTTPS (a TCP connect), a TCP connect to any port (`host:port`), DNS resolution time and a real HTTP
+  request that checks the status code and the body (see below). On Windows the native echo goes through
+  the foreign function API, so it needs `--enable-native-access=NetworkUtils` like `TrafficMonitor`.
 - **Outage diagnosis**: when a host stops answering, `NetworkDiagnosis` tells whether the router, the
   Internet connection, the DNS server or the host itself is at fault.
 - **A callback per response.** Every probe produces a `PingResponse`:
@@ -174,7 +177,7 @@ thread.
 </dependency>
 ```
 
-On the module path: `requires NetworkUtils;`. Requires Java 17 or newer (built for 27).
+On the module path: `requires NetworkUtils;`. Requires Java 27 or newer.
 
 ## License
 
