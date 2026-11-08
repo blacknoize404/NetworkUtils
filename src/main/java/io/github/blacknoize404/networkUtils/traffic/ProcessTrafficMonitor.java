@@ -35,8 +35,8 @@ public final class ProcessTrafficMonitor implements AutoCloseable {
         this(ProcessTrafficSource.create().orElse(null));
     }
 
-    /** With a source to read from — for tests; {@link #isAvailable()} is false with {@code null}. */
-    ProcessTrafficMonitor(ProcessTrafficSource source) {
+    /** With a source to read from; {@link #isAvailable()} is false with {@code null}. */
+    public ProcessTrafficMonitor(ProcessTrafficSource source) {
         this.source = source;
     }
 

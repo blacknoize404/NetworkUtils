@@ -44,42 +44,71 @@ public interface ProcessTrafficSource {
     List<ProcessCounters> read() throws IOException;
 
     static Optional<ProcessTrafficSource> create() {
+        return create(false);
+    }
+
+    /**
+     * The best source of this system. On Windows the chain is the system's own
+     * usage accounting and then the elevated per-connection counters — or the
+     * other way round when {@code preferElevated} asks for the EStats backend
+     * (which only exists when the process is elevated). On macOS it is
+     * {@code nettop}; on Linux, {@code ss} — complete for the user's own
+     * processes, and for everything when run with the right privileges.
+     */
+    static Optional<ProcessTrafficSource> create(boolean preferElevated) {
 
         String os = System.getProperty("os.name", "").toLowerCase();
         if (os.startsWith("windows")) {
-            ProcessTrafficSource primary = null;
+            ProcessTrafficSource winRt = null;
             try {
                 WinRtUsage usage = new WinRtUsage();
                 usage.read();
-                primary = usage;
+                winRt = usage;
             } catch (Throwable _) {
                 // No DLL or no service: the fallback may still work.
             }
-            ProcessTrafficSource fallback = WindowsEStats.create().orElse(null);
-            if (primary == null && fallback == null) {
-                return Optional.empty();
+            ProcessTrafficSource eStats = WindowsEStats.create().orElse(null);
+            List<ProcessTrafficSource> chain = new ArrayList<>();
+            if (preferElevated) {
+                if (eStats != null) {
+                    chain.add(eStats);
+                }
+                if (winRt != null) {
+                    chain.add(winRt);
+                }
+            } else {
+                if (winRt != null) {
+                    chain.add(winRt);
+                }
+                if (eStats != null) {
+                    chain.add(eStats);
+                }
             }
-            return Optional.of(new FallbackUsage(primary, fallback));
+            return chain.isEmpty() ? Optional.empty()
+                    : Optional.of(chain.size() == 1 ? chain.get(0) : new FallbackUsage(chain));
+        }
+        if (os.contains("mac") || os.contains("darwin")) {
+            return MacOsNettop.create();
+        }
+        if (os.contains("linux")) {
+            return LinuxSs.create();
         }
         return Optional.empty();
 
     }
 
     /**
-     * A source that prefers the system's per-application accounting and falls
-     * back to per-connection counters when the first never produces data (or
-     * fails). Once the fallback yields a reading it sticks to it, so counters
-     * do not mix between sources mid-run.
+     * A source that tries its candidates in order and pins the first that
+     * produces data — or, if one fails outright, moves on for the rest of the
+     * run — so counters do not mix between sources mid-run.
      */
     final class FallbackUsage implements ProcessTrafficSource {
 
-        private final ProcessTrafficSource primary;
-        private final ProcessTrafficSource fallback;
+        private final List<ProcessTrafficSource> candidates;
         private ProcessTrafficSource chosen;
 
-        FallbackUsage(ProcessTrafficSource primary, ProcessTrafficSource fallback) {
-            this.primary = primary;
-            this.fallback = fallback;
+        FallbackUsage(List<ProcessTrafficSource> candidates) {
+            this.candidates = candidates;
         }
 
         @Override
@@ -88,30 +117,21 @@ public interface ProcessTrafficSource {
             if (chosen != null) {
                 return chosen.read();
             }
-            if (primary != null) {
+            List<ProcessCounters> last = List.of();
+            for (java.util.Iterator<ProcessTrafficSource> it = candidates.iterator(); it.hasNext(); ) {
+                ProcessTrafficSource candidate = it.next();
                 try {
-                    List<ProcessCounters> out = primary.read();
+                    List<ProcessCounters> out = candidate.read();
                     if (!out.isEmpty()) {
-                        chosen = primary;
+                        chosen = candidate;
                         return out;
                     }
+                    last = out;
                 } catch (IOException _) {
-                    // The primary died for good: switch for the rest of the run.
-                    chosen = fallback;
-                    if (chosen == null) {
-                        return List.of();
-                    }
-                    return chosen.read();
+                    it.remove();
                 }
             }
-            if (fallback != null) {
-                List<ProcessCounters> out = fallback.read();
-                if (!out.isEmpty()) {
-                    chosen = fallback;
-                }
-                return out;
-            }
-            return List.of();
+            return last;
 
         }
 
