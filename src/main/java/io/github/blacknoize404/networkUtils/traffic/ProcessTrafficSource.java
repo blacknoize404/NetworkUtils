@@ -47,15 +47,73 @@ public interface ProcessTrafficSource {
 
         String os = System.getProperty("os.name", "").toLowerCase();
         if (os.startsWith("windows")) {
+            ProcessTrafficSource primary = null;
             try {
                 WinRtUsage usage = new WinRtUsage();
                 usage.read();
-                return Optional.of(usage);
-            } catch (Throwable e) {
+                primary = usage;
+            } catch (Throwable _) {
+                // No DLL or no service: the fallback may still work.
+            }
+            ProcessTrafficSource fallback = WindowsEStats.create().orElse(null);
+            if (primary == null && fallback == null) {
                 return Optional.empty();
             }
+            return Optional.of(new FallbackUsage(primary, fallback));
         }
         return Optional.empty();
+
+    }
+
+    /**
+     * A source that prefers the system's per-application accounting and falls
+     * back to per-connection counters when the first never produces data (or
+     * fails). Once the fallback yields a reading it sticks to it, so counters
+     * do not mix between sources mid-run.
+     */
+    final class FallbackUsage implements ProcessTrafficSource {
+
+        private final ProcessTrafficSource primary;
+        private final ProcessTrafficSource fallback;
+        private ProcessTrafficSource chosen;
+
+        FallbackUsage(ProcessTrafficSource primary, ProcessTrafficSource fallback) {
+            this.primary = primary;
+            this.fallback = fallback;
+        }
+
+        @Override
+        public List<ProcessCounters> read() throws IOException {
+
+            if (chosen != null) {
+                return chosen.read();
+            }
+            if (primary != null) {
+                try {
+                    List<ProcessCounters> out = primary.read();
+                    if (!out.isEmpty()) {
+                        chosen = primary;
+                        return out;
+                    }
+                } catch (IOException _) {
+                    // The primary died for good: switch for the rest of the run.
+                    chosen = fallback;
+                    if (chosen == null) {
+                        return List.of();
+                    }
+                    return chosen.read();
+                }
+            }
+            if (fallback != null) {
+                List<ProcessCounters> out = fallback.read();
+                if (!out.isEmpty()) {
+                    chosen = fallback;
+                }
+                return out;
+            }
+            return List.of();
+
+        }
 
     }
 
