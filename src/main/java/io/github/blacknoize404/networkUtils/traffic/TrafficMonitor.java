@@ -48,10 +48,18 @@ public final class TrafficMonitor implements AutoCloseable {
 
     }
 
+    /**
+     * The bytes one adapter moved in an interval — the per-interface version of
+     * {@link Sample}, meant for long-term recording rather than the live view.
+     */
+    public record InterfaceSample(Instant time, TrafficInterface adapter, long received, long sent) {
+    }
+
     private static final int HISTORY_LIMIT = 2048;
 
     private final Optional<TrafficSource> source = TrafficSource.create();
     private final ReadOnlyObjectWrapper<Sample> sample = new ReadOnlyObjectWrapper<>();
+    private final ReadOnlyObjectWrapper<List<InterfaceSample>> interfaceSamples = new ReadOnlyObjectWrapper<>();
     private final ReadOnlyObjectWrapper<TrafficInterface> activeInterface = new ReadOnlyObjectWrapper<>();
     private final Deque<Sample> history = new ConcurrentLinkedDeque<>();
 
@@ -83,6 +91,15 @@ public final class TrafficMonitor implements AutoCloseable {
 
     public ReadOnlyObjectProperty<Sample> sampleProperty() {
         return sample.getReadOnlyProperty();
+    }
+
+    /**
+     * The bytes each adapter moved in the last interval — every adapter that
+     * carried anything, whatever the selection measures. Updated from the
+     * sampling thread together with {@link #sampleProperty()}.
+     */
+    public ReadOnlyObjectProperty<List<InterfaceSample>> interfaceSamplesProperty() {
+        return interfaceSamples.getReadOnlyProperty();
     }
 
     public TrafficSelection selection() {
@@ -249,18 +266,29 @@ public final class TrafficMonitor implements AutoCloseable {
             long received = 0;
             long sent = 0;
             boolean measured = false;
+            List<InterfaceSample> perAdapter = new ArrayList<>();
 
-            for (TrafficSource.Counters c : target) {
+            for (TrafficSource.Counters c : all) {
                 long[] before = previous.get(c.info().id());
                 // An adapter that just appeared, or whose counter restarted, skips this interval.
                 if (before != null && c.received() >= before[0] && c.sent() >= before[1]) {
-                    received += c.received() - before[0];
-                    sent += c.sent() - before[1];
-                    measured = true;
+                    long moved = c.received() - before[0];
+                    long up = c.sent() - before[1];
+                    if (moved > 0 || up > 0) {
+                        perAdapter.add(new InterfaceSample(Instant.now(), c.info(), moved, up));
+                    }
+                    if (target.contains(c)) {
+                        received += moved;
+                        sent += up;
+                        measured = true;
+                    }
                 }
             }
             if (measured) {
                 publish(new Sample(Instant.now(), received / seconds, sent / seconds, received, sent));
+            }
+            if (!perAdapter.isEmpty()) {
+                interfaceSamples.set(List.copyOf(perAdapter));
             }
         }
 
