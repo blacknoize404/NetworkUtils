@@ -331,9 +331,11 @@ interface TrafficSource {
                     continue;
                 }
                 boolean link = fields[2].startsWith("<Link");
+                // Las filas <Link#n> de utun, gif o stf no llevan dirección: una columna menos y todo corrido un lugar
+                int skewed = link && fields.length == 10 ? 1 : 0;
                 if (link || !bytes.containsKey(fields[0])) {
                     try {
-                        bytes.put(fields[0], new long[]{Long.parseLong(fields[6]), Long.parseLong(fields[9])});
+                        bytes.put(fields[0], new long[]{Long.parseLong(fields[6 - skewed]), Long.parseLong(fields[9 - skewed])});
                     } catch (NumberFormatException e) {
                         // Cabeceras o columnas de otro formato: no son contadores
                     }

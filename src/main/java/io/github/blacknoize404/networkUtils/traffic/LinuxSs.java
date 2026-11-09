@@ -42,7 +42,7 @@ final class LinuxSs implements ProcessTrafficSource {
     static Optional<ProcessTrafficSource> create() {
 
         try {
-            ProcessBuilder probe = new ProcessBuilder("ss", "-H", "-t", "-l", "nt");
+            ProcessBuilder probe = new ProcessBuilder("ss", "-H", "-t", "-l");
             Process process = probe.start();
             process.getInputStream().transferTo(java.io.OutputStream.nullOutputStream());
             if (!process.waitFor(10, java.util.concurrent.TimeUnit.SECONDS) || process.exitValue() != 0) {
@@ -129,8 +129,8 @@ final class LinuxSs implements ProcessTrafficSource {
 
     /**
      * The socket blocks of {@code ss -tipnaH}: a socket starts on an unindented
-     * {@code tcp …} line whose 5th and 6th fields are local and peer
-     * {@code addr:port}; {@code bytes_sent}/{@code bytes_received} and the
+     * line (state first, or {@code tcp} and then the state)
+     * whose local and peer fields are {@code addr:port}; {@code bytes_sent}/{@code bytes_received} and the
      * {@code users:((…))} tag may sit on the same line or on indented
      * continuations. Sockets without a byte counter or in LISTEN are skipped.
      */
@@ -158,9 +158,12 @@ final class LinuxSs implements ProcessTrafficSource {
                 sent = -1;
                 received = -1;
                 String[] f = line.trim().split("\\s+");
-                if (f.length >= 6 && f[0].equals("tcp") && !f[1].equalsIgnoreCase("LISTEN")) {
-                    local = f[4];
-                    peer = f[5];
+                // Con -t solo, ss no escribe la columna Netid: «ESTAB 0 0 local peer»; con varios tipos de
+                // socket sí: «tcp ESTAB 0 0 local peer». Se aceptan las dos formas.
+                int first = f.length > 0 && f[0].equals("tcp") ? 1 : 0;
+                if (f.length >= first + 5 && !f[first].equalsIgnoreCase("LISTEN") && f[first].matches("[A-Za-z-]+")) {
+                    local = f[first + 3];
+                    peer = f[first + 4];
                 }
             }
             if (local == null) {

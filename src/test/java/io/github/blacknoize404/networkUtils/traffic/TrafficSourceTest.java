@@ -75,6 +75,20 @@ class TrafficSourceTest {
     }
 
     @Test
+    void macNetstatReadsLinkRowsWithoutAnAddress() {
+
+        // utun0 es <Link#n> sin dirección: una columna menos, los bytes están un lugar antes
+        String output = "Name  Mtu   Network       Address            Ipkts Ierrs     Ibytes    Opkts Oerrs     Obytes  Coll\n"
+                + "utun3 1380  <Link#12>                       70    0         7000      30    0         3000    0\n";
+
+        List<TrafficSource.Counters> counters = TrafficSource.MacNetstat.parse(output);
+
+        assertEquals(1, counters.size());
+        assertArrayEquals(new long[]{7000, 3000}, TrafficSource.sum(counters));
+
+    }
+
+    @Test
     void selectionOfASingleInterfaceNeedsItsId() {
 
         assertThrows(IllegalArgumentException.class, () -> new TrafficSelection(TrafficSelection.Mode.ONLY, null));

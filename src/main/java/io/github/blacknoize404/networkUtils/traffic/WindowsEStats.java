@@ -46,8 +46,16 @@ final class WindowsEStats implements ProcessTrafficSource {
     private static final int ROW4 = 24;
     /** MIB_TCP6ROW_OWNER_PID: same fields, 16-byte addresses, state near the end. */
     private static final int ROW6 = 56;
-    /** TCP_ESTATS_DATA_ROD_v0: DataOutBytes first, DataInBytes next. */
-    private static final int ROD_SIZE = 88;
+    /**
+     * TCP_ESTATS_DATA_ROD_v0: DataBytesOut@0, DataSegsOut@8, DataBytesIn@16, DataSegsIn@24, SegsOut@32, SegsIn@40,
+     * SoftErrors@48, SoftErrorReason@52, SndUna@56, SndNxt@60, SndMax@64, ThruBytesAcked@72, RcvNxt@80,
+     * ThruBytesReceived@88: 96 bytes.
+     */
+    private static final int ROD_SIZE = 96;
+    private static final int ROD_DATA_BYTES_OUT = 0;
+    private static final int ROD_DATA_BYTES_IN = 16;
+    /** MIB_TCP6ROW: state, local address(16), scope, port, remote address(16), scope, port. */
+    private static final int ROW6_PLAIN = 52;
 
     /** dwState values that never carry data: LISTENING and DELETE_TCB. */
     private static boolean countable(int state) {
@@ -147,7 +155,7 @@ final class WindowsEStats implements ProcessTrafficSource {
                 MemorySegment value = arena.allocate(JAVA_INT);
                 MemorySegment returned = arena.allocate(JAVA_INT);
                 boolean ok = (int) tokenInfo.invokeExact(token.get(ADDRESS, 0), 20, value, 4, returned) != 0;
-                close.invokeExact(token.get(ADDRESS, 0));
+                int _ = (int) close.invokeExact(token.get(ADDRESS, 0));
                 return ok && value.get(JAVA_INT, 0) != 0;
             }
         } catch (Throwable _) {
@@ -163,13 +171,13 @@ final class WindowsEStats implements ProcessTrafficSource {
             boolean anyRow = false;
             for (MemorySegment row : rows(arena, AF_INET)) {
                 anyRow = true;
-                if ((int) setEStats.invokeExact(row, TCP_ESTATS_DATA, arena.allocate(JAVA_INT), 0, 1, 0) == 0) {
+                if ((int) setEStats.invokeExact(row, TCP_ESTATS_DATA, enableFlag(arena), 0, 1, 0) == 0) {
                     return true;
                 }
             }
             for (MemorySegment row : rows(arena, AF_INET6)) {
                 anyRow = true;
-                if ((int) setEStats6.invokeExact(row, TCP_ESTATS_DATA, arena.allocate(JAVA_INT), 0, 1, 0) == 0) {
+                if ((int) setEStats6.invokeExact(plain6(arena, row), TCP_ESTATS_DATA, enableFlag(arena), 0, 1, 0) == 0) {
                     return true;
                 }
             }
@@ -185,14 +193,15 @@ final class WindowsEStats implements ProcessTrafficSource {
 
         try (Arena arena = Arena.ofConfined()) {
             Map<ByteBuffer, long[]> now = new HashMap<>();
+            MemorySegment enable = enableFlag(arena);
             MemorySegment rw = arena.allocate(JAVA_INT);
             MemorySegment rod = arena.allocate(ROD_SIZE);
 
             for (MemorySegment row : rows(arena, AF_INET)) {
-                pollQuietly(row, false, rw, rod, now);
+                pollQuietly(arena, row, false, enable, rw, rod, now);
             }
             for (MemorySegment row : rows(arena, AF_INET6)) {
-                pollQuietly(row, true, rw, rod, now);
+                pollQuietly(arena, row, true, enable, rw, rod, now);
             }
 
             seen.clear();
@@ -205,18 +214,19 @@ final class WindowsEStats implements ProcessTrafficSource {
     }
 
     /** {@link #poll} tolerante a filas rebeldes: una mala no invalida el resto de la tabla. */
-    private void pollQuietly(MemorySegment row, boolean ipv6, MemorySegment rw, MemorySegment rod, Map<ByteBuffer, long[]> now) {
+    private void pollQuietly(Arena arena, MemorySegment row, boolean ipv6, MemorySegment enable, MemorySegment rw,
+                             MemorySegment rod, Map<ByteBuffer, long[]> now) {
 
         try {
-            poll(row, ipv6, rw, rod, now);
+            poll(arena, row, ipv6, enable, rw, rod, now);
         } catch (Throwable _) {
         }
 
     }
 
     /** Enables and reads the counters of one row, folding the delta into the process totals. */
-    private void poll(MemorySegment row, boolean ipv6, MemorySegment rw, MemorySegment rod, Map<ByteBuffer, long[]> now)
-            throws Throwable {
+    private void poll(Arena arena, MemorySegment row, boolean ipv6, MemorySegment enable, MemorySegment rw,
+                      MemorySegment rod, Map<ByteBuffer, long[]> now) throws Throwable {
 
         int state = row.get(JAVA_INT, ipv6 ? 48 : 0);
         if (!countable(state)) {
@@ -226,21 +236,24 @@ final class WindowsEStats implements ProcessTrafficSource {
         ByteBuffer key = key(row, ipv6);
 
         if (ipv6) {
-            setEStats6.invokeExact(row, TCP_ESTATS_DATA, rw, 0, 1, 0);
-            if ((int) getEStats6.invokeExact(row, TCP_ESTATS_DATA, rw, 0, 1,
+            // Las funciones esperan MIB_TCP6ROW (estado primero), no la fila con propietario de la tabla
+            MemorySegment plain = plain6(arena, row);
+            int _ = (int) setEStats6.invokeExact(plain, TCP_ESTATS_DATA, enable, 0, 1, 0);
+            if ((int) getEStats6.invokeExact(plain, TCP_ESTATS_DATA, rw, 0, 1,
                     MemorySegment.NULL, 0, 0, rod, 0, ROD_SIZE) != 0) {
                 return;
             }
         } else {
-            setEStats.invokeExact(row, TCP_ESTATS_DATA, rw, 0, 1, 0);
+            // MIB_TCPROW_OWNER_PID empieza igual que MIB_TCPROW: sirve tal cual
+            int _ = (int) setEStats.invokeExact(row, TCP_ESTATS_DATA, enable, 0, 1, 0);
             if ((int) getEStats.invokeExact(row, TCP_ESTATS_DATA, rw, 0, 1,
                     MemorySegment.NULL, 0, 0, rod, 0, ROD_SIZE) != 0) {
                 return;
             }
         }
 
-        long sent = rod.get(JAVA_LONG, 0);
-        long received = rod.get(JAVA_LONG, 8);
+        long sent = rod.get(JAVA_LONG, ROD_DATA_BYTES_OUT);
+        long received = rod.get(JAVA_LONG, ROD_DATA_BYTES_IN);
         now.put(key, new long[]{received, sent});
 
         long[] before = seen.get(key);
@@ -250,6 +263,28 @@ final class WindowsEStats implements ProcessTrafficSource {
             totals.merge(process(pid), new long[]{dReceived, dSent},
                     (a, b) -> new long[]{a[0] + b[0], a[1] + b[1]});
         }
+
+    }
+
+    /** El valor de EnableCollection (TcpBoolOptEnabled = 1) para {@code SetPerTcpConnectionEStats}. */
+    private static MemorySegment enableFlag(Arena arena) {
+
+        MemorySegment flag = arena.allocate(JAVA_INT);
+        flag.set(JAVA_INT, 0, 1);
+        return flag;
+
+    }
+
+    /**
+     * La fila IPv6 de la tabla (MIB_TCP6ROW_OWNER_PID: direcciones, puertos, estado y pid) como MIB_TCP6ROW:
+     * el estado delante y, desplazados cuatro bytes, direcciones y puertos.
+     */
+    private static MemorySegment plain6(Arena arena, MemorySegment row) {
+
+        MemorySegment plain = arena.allocate(ROW6_PLAIN);
+        plain.set(JAVA_INT, 0, row.get(JAVA_INT, 48));
+        MemorySegment.copy(row, 0, plain, 4, 48);
+        return plain;
 
     }
 
@@ -291,7 +326,7 @@ final class WindowsEStats implements ProcessTrafficSource {
                 int sep = path.lastIndexOf('\\');
                 return sep >= 0 ? path.substring(sep + 1) : path;
             } finally {
-                closeHandle.invokeExact(process);
+                int _ = (int) closeHandle.invokeExact(process);
             }
         } catch (Throwable _) {
             return "PID " + pid;

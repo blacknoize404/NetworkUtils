@@ -131,6 +131,15 @@ final class UnixDgramEcho {
                 }
                 long millis = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - started);
 
+                // macOS entrega el datagrama con su cabecera IPv4 delante (versión 4 en el primer nibble: ningún tipo
+                // ICMP empieza así); Linux la quita. Se salta para leer siempre desde el tipo ICMP.
+                int first = reply.get(JAVA_BYTE, 0) & 0xFF;
+                if (first >> 4 == 4 && received > (first & 0x0F) * 4L) {
+                    int header = (first & 0x0F) * 4;
+                    reply = reply.asSlice(header);
+                    received -= header;
+                }
+
                 int type = reply.get(JAVA_BYTE, 0) & 0xFF;
                 if (type == ECHO_REPLY && received >= PACKET && own(reply)) {
                     return new PingSuccessResponse(host, millis);

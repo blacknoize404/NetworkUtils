@@ -103,6 +103,25 @@ class ProcessTrafficSourceTest {
     }
 
     @Test
+    void ssWithoutTheNetidColumnIsParsedToo() {
+
+        // «ss -tipnaH» real: con -t solo no hay columna Netid y la línea empieza por el estado
+        List<LinuxSs.SocketRow> rows = LinuxSs.parse(List.of(
+                "ESTAB  0  0  192.168.1.5:55332  93.184.216.34:443  users:((\"curl\",pid=1234,fd=3))",
+                "	 cubic wscale:7,7 bytes_sent:5000 bytes_received:90000 segs_out:10",
+                "LISTEN 0  4096  0.0.0.0:22  0.0.0.0:*  users:((\"sshd\",pid=1,fd=3))",
+                "	 cubic bytes_sent:1 bytes_received:1"));
+
+        assertEquals(1, rows.size());
+        assertEquals("curl", rows.get(0).process());
+        assertEquals("192.168.1.5:55332", rows.get(0).local());
+        assertEquals("93.184.216.34:443", rows.get(0).peer());
+        assertEquals(5000, rows.get(0).sent());
+        assertEquals(90000, rows.get(0).received());
+
+    }
+
+    @Test
     void ssBlocksAreParsedWithBytesAndOwner() {
 
         List<LinuxSs.SocketRow> rows = LinuxSs.parse(List.of(
